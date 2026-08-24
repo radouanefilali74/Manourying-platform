@@ -6,11 +6,11 @@ The public website, and (in later phases) the API and admin panel behind
 Everything is self-hosted on the OVH VPS behind `manourying.manouri.ovh`.
 
 ```
-web/      Astro static site        → manourying.manouri.ovh      ← built
+web/      Astro static site        → manourying.manouri.ovh      ← LIVE
 server/   Fastify + Postgres API   → api.manourying.manouri.ovh  ← phase 2
 admin/    Vite + React admin panel → admin.…                     ← phase 3
 db/       schema + migrations                                    ← phase 2
-deploy/   Caddyfile, app-links templates, deployment notes
+deploy/   nginx vhost, publish script, app-links templates, deployment notes
 scripts/  parity gates
 ```
 
@@ -31,7 +31,17 @@ From the repo root:
 
 ```bash
 npm run verify       # astro check + parity gate + build
+npm run deploy       # publish to manourying.manouri.ovh (run on the VPS)
+npm run push -- "feat: ..."   # verify, commit everything, push to GitHub
 ```
+
+The repo lives on the VPS, and the site is served by nginx straight off the filesystem, so
+deploying is a build plus a directory swap — see [deploy/DEPLOY.md](deploy/DEPLOY.md).
+
+Publishing to the VPS and pushing to GitHub are separate acts: `npm run deploy` changes what
+visitors see, `npm run push` changes what the repo says. [deploy/push.sh](deploy/push.sh) runs
+the verify gate *before* committing, so a tree that fails parity never reaches origin — the
+source of the published seal hash and the seal hash itself cannot drift apart in the history.
 
 ## The parity gate
 

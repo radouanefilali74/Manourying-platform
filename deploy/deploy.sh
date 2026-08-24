@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 #
-# Deploy the static site to the VPS.
+# Deploy the static site to the VPS *from a remote workstation*.
+#
+# If you are already on the VPS — which is where the repo normally lives — use
+# ./deploy/publish.sh instead. This script would ssh to the machine it is
+# running on. It also assumes Caddy owns the document root; the box now runs
+# nginx (see DEPLOY.md), so the ownership it sets is wrong there.
 #
 # Builds locally, ships a tarball, and swaps it into place atomically — the
 # live directory is replaced by a `mv`, so a visitor never sees a half-copied

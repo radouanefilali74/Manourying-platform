@@ -8,10 +8,12 @@
     "dev": "npm --prefix web run dev",
     "build": "npm --prefix web run build",
     "preview": "npm --prefix web run preview",
-    "check": "npm --prefix web exec astro check",
-    "check:parity": "node scripts/check-parity.mjs ../manourying",
-    "directive:hash": "node scripts/directive-hash.mjs ../manourying",
-    "verify": "npm run check && npm run check:parity && npm run build"
+    "check": "npm --prefix web run astro -- check",
+    "check:parity": "node scripts/check-parity.mjs ../Manourying",
+    "directive:hash": "node scripts/directive-hash.mjs ../Manourying",
+    "verify": "npm run check && npm run check:parity && npm run build",
+    "deploy": "./deploy/publish.sh",
+    "push": "./deploy/push.sh"
   },
   "devDependencies": {
     "playwright": "^1.57.0"

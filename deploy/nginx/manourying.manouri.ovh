@@ -1,0 +1,108 @@
+# manourying.manouri.ovh — the public website
+#
+# The site is `output: 'static'`, served as plain files with no application
+# process in front of it. That is deliberate: the spec requires the explainer to
+# be reachable at a stable URL, and a static file cannot be taken down by a
+# crashed Node process.
+#
+# This is the nginx translation of ../Caddyfile, which remains the reference for
+# the header values. nginx — not Caddy — is what actually serves this host,
+# because the box already runs nginx for law.manouri.ovh and two web servers
+# cannot share port 443.
+#
+# Install:
+#   sudo cp deploy/nginx/manourying.manouri.ovh /etc/nginx/sites-available/
+#   sudo ln -sfn /etc/nginx/sites-available/manourying.manouri.ovh /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+
+# Cache policy as a map rather than a per-location `add_header`, because a
+# location-level add_header REPLACES every header inherited from the server
+# block. Setting Cache-Control inside a `location /_astro/` would therefore
+# silently drop the CSP and the security headers for exactly the requests that
+# carry the site's own assets. One add_header set, one map, no inheritance trap.
+map $uri $manourying_cache {
+    default    "public, max-age=300";
+    ~^/_astro/ "public, max-age=31536000, immutable";
+}
+
+# ---- HTTP: ACME challenge + redirect to HTTPS ----
+server {
+    listen 80;
+    listen [::]:80;
+    server_name manourying.manouri.ovh;
+
+    # `^~` matters: it beats a regex location, so renewal keeps working even if
+    # a dotfile-deny rule is ever added to this block. certbot is configured
+    # with the webroot authenticator against /var/www/html.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---- HTTPS ----
+server {
+    # No `http2` here on purpose. It is a listening-socket option, not a
+    # per-server one: law.manouri.ovh already enables it on 443, and repeating
+    # it makes nginx warn "protocol options redefined" at every config test.
+    # HTTP/2 is negotiated on this host regardless — verify with `curl -I --http2`.
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name manourying.manouri.ovh;
+
+    ssl_certificate         /etc/letsencrypt/live/manourying.manouri.ovh/fullchain.pem;
+    ssl_certificate_key     /etc/letsencrypt/live/manourying.manouri.ovh/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/manourying.manouri.ovh/chain.pem;
+
+    root /srv/manourying/web;
+    index index.html;
+
+    limit_conn connlimit 20;
+    limit_req zone=general burst=20 nodelay;
+
+    # Unlike law.manouri.ovh — where Next.js and Express emit their own CSP and
+    # nginx owns only HSTS — there is no application here. nginx is the only
+    # thing that can set these, so the whole set lives in this file.
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # Google Fonts is the only third-party origin the site touches. Adding any
+    # other remote asset means editing this line too.
+    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" always;
+
+    add_header Cache-Control $manourying_cache always;
+
+    # The site is built with `trailingSlash: 'never'`, so /faq/ has no directory
+    # to serve and would 404. Collapse it instead. `.+` cannot match empty, so
+    # "/" itself is never caught here.
+    location ~ ^(?<nonslash>.+)/$ {
+        return 301 $nonslash$is_args$args;
+    }
+
+    # Never serve dotfiles.
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Built with `build.format: 'file'`, so /faq lives at /faq.html on disk.
+    # try_files gives clean URLs without a redirect round trip.
+    location / {
+        try_files $uri $uri.html $uri/index.html =404;
+    }
+
+    error_page 404 /404.html;
+
+    # ---- phase 5: app links ------------------------------------------------
+    # Not deployed on purpose. Serving a malformed assetlinks.json is worse than
+    # serving none — Android caches the failure. See deploy/README.md.
+    #
+    # location = /.well-known/assetlinks.json            { default_type application/json; }
+    # location = /.well-known/apple-app-site-association { default_type application/json; }
+}

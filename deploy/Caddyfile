@@ -1,5 +1,13 @@
 # Caddy configuration for manourying.manouri.ovh
 #
+# NOT WHAT SERVES THIS SITE. The VPS already runs nginx for law.manouri.ovh and
+# two web servers cannot share port 443, so the live host is nginx — see
+# nginx/manourying.manouri.ovh, which is the translation of this file.
+#
+# This is kept for two reasons: it is the reference for the header values
+# (the CSP below is the source the nginx vhost copies), and it is what to reach
+# for if this site ever moves to a host where Caddy *is* the server.
+#
 # Phase 1 serves the static site and nothing else. The api and admin blocks are
 # written out but commented, so that bringing them up later is uncommenting
 # rather than remembering.

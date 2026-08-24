@@ -1,195 +1,170 @@
 # Deploying to the VPS
 
-Target: **`ubuntu@158.69.219.65`** serving **`https://manourying.manouri.ovh`**
+Live at **<https://manourying.manouri.ovh>**, served by **nginx** from the OVH VPS at
+`158.69.219.65` (`ubuntu@`, hostname `vps-c9668b59`).
 
-DNS is already correct — `manourying.manouri.ovh` resolves to `158.69.219.65` (A) and
-`64:ff9b::9e45:db41` (AAAA). Nothing to change at OVH.
-
----
-
-## 0. Pre-flight — do this first
-
-Ports 80 and 443 on the VPS currently **accept a TCP connection and then close without replying**
-(`curl` reports "Empty reply from server"). Something is bound to them, or something in front of
-them is dropping traffic. Caddy cannot start if another process holds those ports, so find out what
-it is before installing anything:
-
-```bash
-ssh -i ~/.ssh/vps_85 ubuntu@158.69.219.65
-
-sudo ss -tlnp | grep -E ':80 |:443 '     # what is listening
-sudo systemctl list-units --type=service --state=running | grep -Ei 'nginx|apache|caddy|traefik|docker'
-sudo docker ps 2>/dev/null               # a container publishing :80 is the usual culprit
-```
-
-**This matters beyond Caddy:** `manouri.ovh` — the parent domain — points at the same IP. If you are
-already serving something there, whatever you find above is serving it, and you should add
-Manourying to *that* server rather than installing Caddy alongside it. The `Caddyfile` in this
-directory only ever claims `manourying.manouri.ovh`, so it will not hijack the parent domain, but
-two web servers cannot share port 443.
-
-| What you find | What to do |
-|---|---|
-| Nothing listening | Continue to step 1 — install Caddy |
-| **nginx** or **Apache** | Skip Caddy. Use the nginx vhost in step 1b instead |
-| A Docker container on `:80` | Either stop it, or reverse-proxy from it — ask me and I will write that config |
+**The repository lives on the VPS itself.** There is no upload step: you build where the files are
+already going to be served from. That is the single most important thing to know before reading
+any older instructions.
 
 ---
 
-## 1. One-time server setup
-
-### 1a. If nothing is serving yet — Caddy
-
-Caddy is the recommended path: it obtains and renews TLS certificates on its own, with no certbot,
-no cron job, and no renewal that silently expires in ninety days.
+## Deploying a change
 
 ```bash
-ssh -i ~/.ssh/vps_85 ubuntu@158.69.219.65
-
-# Official Caddy repo (the Ubuntu-bundled version is usually ancient)
-sudo apt update
-sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-  | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-  | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update
-sudo apt install -y caddy
-
-sudo mkdir -p /srv/manourying/web /var/log/caddy
-sudo chown -R caddy:caddy /srv/manourying /var/log/caddy
-```
-
-Then, **from your machine**, install the config and reload:
-
-```bash
-cd c:/Users/biibi/Downloads/files/manourying-platform
-
-scp -i ~/.ssh/vps_85 deploy/Caddyfile ubuntu@158.69.219.65:/tmp/Caddyfile
-ssh -i ~/.ssh/vps_85 ubuntu@158.69.219.65 '
-  sudo mv /tmp/Caddyfile /etc/caddy/Caddyfile &&
-  sudo caddy validate --config /etc/caddy/Caddyfile &&
-  sudo systemctl reload caddy &&
-  sudo systemctl status caddy --no-pager -l | head -20
-'
-```
-
-`caddy validate` runs before the reload deliberately — a malformed config that fails validation
-leaves the running server untouched, rather than taking the site down.
-
-### 1b. If nginx is already there
-
-Do **not** install Caddy. Put this at `/etc/nginx/sites-available/manourying`, symlink it into
-`sites-enabled`, and get a certificate with `sudo certbot --nginx -d manourying.manouri.ovh`:
-
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name manourying.manouri.ovh;
-
-    root /srv/manourying/web;
-    index index.html;
-
-    # The site is built with format:'file', so /faq lives at /faq.html.
-    location / {
-        try_files $uri $uri.html $uri/index.html =404;
-    }
-
-    error_page 404 /404.html;
-
-    location /_astro/ {
-        add_header Cache-Control "public, max-age=31536000, immutable";
-    }
-
-    # App-links files must be served as JSON when they eventually exist.
-    location = /.well-known/assetlinks.json { default_type application/json; }
-    location = /.well-known/apple-app-site-association { default_type application/json; }
-
-    add_header X-Content-Type-Options nosniff;
-    add_header X-Frame-Options DENY;
-    add_header Referrer-Policy strict-origin-when-cross-origin;
-}
-```
-
----
-
-## 2. Deploy
-
-From your machine, one command:
-
-```bash
-cd c:/Users/biibi/Downloads/files/manourying-platform
-./deploy/deploy.sh
+cd ~/projects/Manourying-platform
+./deploy/publish.sh
 ```
 
 That script:
 
-1. runs the parity gate — refuses to deploy if the site's seal hash disagrees with the app's,
+1. runs the parity gate against `../Manourying` — refuses to publish if the site's seal hash
+   disagrees with the app's,
 2. builds the site,
-3. refuses to deploy if `what-this-is.html` is missing (the one page the spec insists must exist),
-4. ships a tarball and swaps it into place with `mv`, so nobody sees a half-copied site,
+3. refuses to publish if `what-this-is.html` is missing from the build,
+4. swaps `/srv/manourying/web` into place with `mv`, so nobody sees a half-copied site,
 5. keeps the previous release at `/srv/manourying/web.old`,
 6. curls the live URLs and prints the status codes.
 
-Every later deploy is the same single command.
+No nginx reload is needed: the document root is read from disk on every request, and the config
+has not changed.
 
 ### If a deploy goes wrong
 
 ```bash
-ssh -i ~/.ssh/vps_85 ubuntu@158.69.219.65 '
-  sudo rm -rf /srv/manourying/web.bad &&
-  sudo mv /srv/manourying/web /srv/manourying/web.bad &&
-  sudo mv /srv/manourying/web.old /srv/manourying/web
-'
+sudo rm -rf /srv/manourying/web.bad
+sudo mv /srv/manourying/web /srv/manourying/web.bad
+sudo mv /srv/manourying/web.old /srv/manourying/web
 ```
 
 No rebuild, no re-upload — the previous release is already on the box.
 
 ---
 
-## 3. Verify
+## How it is wired
+
+```
+                        :80  ──► redirect to HTTPS (+ ACME challenge)
+manourying.manouri.ovh
+                        :443 ──► /srv/manourying/web        (static files, no app process)
+```
+
+| Piece | Where |
+|---|---|
+| vhost (source of truth) | [`nginx/manourying.manouri.ovh`](nginx/manourying.manouri.ovh) in this repo |
+| vhost (installed) | `/etc/nginx/sites-available/`, symlinked into `sites-enabled/` |
+| document root | `/srv/manourying/web`, owned by `root`, world-readable |
+| certificate | `/etc/letsencrypt/live/manourying.manouri.ovh/` |
+
+nginx runs as `www-data` and has read access only. A web server that cannot write its own document
+root is one class of compromise removed.
+
+### This box already served something else
+
+`law.manouri.ovh` (Legal Tech Morocco) runs on the same nginx, and **two web servers cannot share
+port 443** — which is why this site is served by nginx and not by Caddy, despite
+[`Caddyfile`](Caddyfile) sitting in this directory. That file is kept as the reference for the
+header values, and for a future host where Caddy *is* the server; it is not what runs here.
+
+Anything that could take nginx down takes `law.manouri.ovh` down with it. So:
+
+- **Always `sudo nginx -t` before reloading.** A vhost that references a certificate file which
+  does not exist yet will fail the test — which is exactly why the certificate is obtained *before*
+  the vhost is installed (see below).
+- **Reload, never restart.** A reload against a broken config leaves the old one running.
+
+### Unknown hostnames get nothing
+
+`conf.d/00-default-catchall.conf` is the `default_server` and returns **444** — connection closed,
+no response — for any `Host` that is not explicitly configured. This is deliberate, and it is why
+`manourying.manouri.ovh` used to answer with "empty reply from server" before it had a vhost. A
+`000` from curl against an unconfigured hostname is the correct result, not a fault.
+
+The parent domain `manouri.ovh` is a retired hostname that the catchall drops on purpose. It is
+**not** a regression risk for this deployment; nothing here claims it.
+
+---
+
+## First-time setup (already done — recorded for a rebuild)
+
+The ordering matters. nginx refuses to start if a vhost references a certificate that does not
+exist, so the certificate comes first. The catchall already serves `/.well-known/acme-challenge/`
+for *any* Host, which means a certificate can be issued with **no nginx configuration change at
+all**:
+
+```bash
+# 1. Publish the files first — nothing is serving them yet, nothing can break.
+sudo mkdir -p /srv/manourying/web
+./deploy/publish.sh          # or: cp -rT web/dist /srv/manourying/web
+
+# 2. Certificate, via the catchall's ACME handler. No nginx change.
+sudo certbot certonly --webroot -w /var/www/html -d manourying.manouri.ovh --key-type ecdsa
+
+# 3. Only now install the vhost, and only reload if it tests clean.
+sudo cp deploy/nginx/manourying.manouri.ovh /etc/nginx/sites-available/
+sudo ln -sfn /etc/nginx/sites-available/manourying.manouri.ovh /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`--webroot`, not `--nginx`: it matches how `law.manouri.ovh` was issued, and it never rewrites
+nginx configuration behind your back.
+
+### DNS
+
+One `A` record, already correct:
+
+```
+manourying.manouri.ovh.   A   158.69.219.65
+```
+
+There is **no AAAA record**, matching `law.manouri.ovh`. The box does have a global IPv6 address and
+nginx listens on it, but nothing is published in DNS, so certificate validation and all real
+traffic go over IPv4. (An older version of this document claimed an AAAA of `64:ff9b::9e45:db41` —
+that is a NAT64 mapping of the IPv4 address, not a DNS record, and `dig` returns nothing for it.)
+
+### Firewall
+
+`ufw` is active and already allows 80 and 443. Port 80 must stay open even though the site
+redirects to HTTPS — the ACME HTTP challenge needs it.
+
+### Certificate renewal
+
+`certbot.timer` renews automatically. `/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh`
+reloads nginx after any successful renewal — without it, certbot writes new certificate files that
+the running nginx never loads, and the site starts serving an expired certificate about a month
+later. The hook applies to every certificate on the box, `law.manouri.ovh` included.
+
+Check it with `sudo certbot renew --dry-run`.
+
+---
+
+## Verify after deploying
 
 ```bash
 curl -sI https://manourying.manouri.ovh/what-this-is | head -3
 curl -s  https://manourying.manouri.ovh/directive | grep -o '5d0f8aaa[a-z0-9 ]*' | head -1
 ```
 
-The second one should print the seal hash in groups, matching what the app computes on device.
+The second must print the seal hash in groups, matching what the app computes on device.
 
-Then check by hand, because these are the things a curl cannot judge:
+Then by hand, because curl cannot judge these:
 
-- [ ] `https://manourying.manouri.ovh/` — the countdown runs and shows *your* local landing time
-- [ ] `/what-this-is` — loads, and loads with JavaScript disabled
+- [ ] `/` — the countdown runs and shows *your* local landing time
+- [ ] `/what-this-is` — loads, **and loads with JavaScript disabled**
 - [ ] `/gate?code=RQX5U4` — shows the code in the brass box
-- [ ] `https://manouri.ovh` — **still does whatever it did before.** This is the regression risk
-- [ ] The padlock is valid and not self-signed
-
-Certificates: Caddy fetches them on first request, which can take 10–30 seconds. If you get a TLS
-error immediately after `systemctl reload`, wait and retry once before assuming it is broken —
-`sudo journalctl -u caddy -f` shows the ACME exchange live.
+- [ ] `https://law.manouri.ovh` — **still does whatever it did before.** The real regression risk
+- [ ] The padlock is valid and not self-signed; the fonts load
 
 ---
 
-## 4. After it is live
+## Later phases
 
-Two follow-ups, in order of how much they matter:
+`api.manourying.manouri.ovh` and `admin.` arrive in phases 2–3. Add them as separate vhosts in
+`nginx/`, each with its own certificate obtained the same way. Do not add a `reverse_proxy` to a
+service that is not running yet.
 
-1. **Point the app at the site.** Already done in code — `INSTALL_URL` is
-   `https://manourying.manouri.ovh/install`. It takes effect in the next build you cut. Until then,
-   invites sent from the current dev build still carry the old expiring EAS link.
-2. **App Links.** Needs your Apple Team ID and the Android signing-cert SHA-256
-   (`eas credentials -p android`). See `deploy/README.md` — the templates are ready, and I have
-   deliberately not deployed them, because a malformed `assetlinks.json` gets cached by Android and
-   breaks verification for everyone until the cache expires.
+## App Links / Universal Links
 
----
-
-## Firewall
-
-If OVH's firewall or `ufw` is on, 80 and 443 must both be open — Caddy needs 80 for the ACME
-HTTP challenge even though the site itself redirects to HTTPS:
-
-```bash
-sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw status
-```
+**Not deployed, on purpose.** See [README.md](README.md) — the blocks are written out and commented
+in the vhost, ready to uncomment once the Apple Team ID and the Android signing-certificate SHA-256
+exist.

@@ -5,42 +5,43 @@ Everything runs on the OVH VPS behind `manourying.manouri.ovh`.
 ## Phase 1 (now): the static site only
 
 ```
-manourying.manouri.ovh   →  Caddy, serving web/dist as plain files
+manourying.manouri.ovh   →  nginx, serving /srv/manourying/web as plain files
 ```
 
 No application process is in front of the marketing pages. That is deliberate: the spec requires
 the explainer to be reachable at a stable URL, and a static file cannot be taken down by a crashed
 Node process.
 
-```bash
-# on the VPS, once
-sudo apt install caddy
-sudo mkdir -p /srv/manourying/web
+**nginx, not Caddy** — the VPS already runs nginx for `law.manouri.ovh`, and two web servers cannot
+share port 443. The repo also lives *on* the VPS, so deploying is a local build and a directory
+swap, with nothing to upload:
 
-# from your machine, on every deploy
-cd web && npm run build
-rsync -avz --delete dist/ vps:/srv/manourying/web/
+```bash
+./deploy/publish.sh
 ```
 
-Then drop `Caddyfile` into `/etc/caddy/Caddyfile` and `sudo systemctl reload caddy`. Caddy obtains
-and renews TLS certificates by itself; there is nothing to configure for HTTPS beyond pointing DNS
-at the box first.
+Full procedure, first-time setup, and the rollback in **[DEPLOY.md](DEPLOY.md)**. The vhost is
+[`nginx/manourying.manouri.ovh`](nginx/manourying.manouri.ovh); [`Caddyfile`](Caddyfile) is kept as
+the reference for the header values and for a future Caddy-based host, but it is not what serves
+this site.
 
 ## DNS
 
-One `A` record (and `AAAA` if the VPS has IPv6):
+One `A` record:
 
 ```
-manourying.manouri.ovh.      A      <vps-ip>
-api.manourying.manouri.ovh.  A      <vps-ip>     # phase 2
+manourying.manouri.ovh.      A      158.69.219.65
+api.manourying.manouri.ovh.  A      158.69.219.65    # phase 2
 ```
+
+No `AAAA` — the box has IPv6 but publishes none, matching `law.manouri.ovh`.
 
 ## Later phases
 
-`api.` and the admin panel arrive in phases 2–3 and are already stubbed in the `Caddyfile`, commented
-out. Do not uncomment them until the service they proxy to actually exists — Caddy will fail to start
-if a reverse-proxy target is unreachable at boot in some configurations, and a broken Caddy takes the
-public site down with it.
+`api.` and the admin panel arrive in phases 2–3. Add each as its own vhost in `nginx/`, with its own
+certificate. Do not add a `reverse_proxy` for a service that does not exist yet — and remember that
+nginx here also serves `law.manouri.ovh`, so a config that fails to load takes down more than this
+site. Always `sudo nginx -t` before reloading.
 
 ## App Links / Universal Links
 

@@ -16,3 +16,6 @@ deploy/well-known/apple-app-site-association
 
 .DS_Store
 Thumbs.db
+
+# Local agent guidance — not shared.
+CLAUDE.md

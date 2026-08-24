@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.astro/
+*.log
+
+# Never commit real credentials. The API and admin phases read these from the
+# environment on the VPS, not from the repo.
+.env
+.env.*
+!.env.example
+
+# Filled-in app-links files carry the signing-certificate fingerprint and the
+# Apple Team ID. Templates are committed; the real ones are deployed, not stored.
+deploy/well-known/assetlinks.json
+deploy/well-known/apple-app-site-association
+
+.DS_Store
+Thumbs.db

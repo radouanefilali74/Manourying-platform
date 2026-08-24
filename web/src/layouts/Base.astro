@@ -1,0 +1,174 @@
+---
+import '../styles/tokens.css';
+import { NAV, SITE_ORIGIN } from '../config';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Set on the landing page, which carries its own full-bleed hero. */
+  bare?: boolean;
+}
+
+const { title, description, bare = false } = Astro.props;
+const canonical = new URL(Astro.url.pathname, SITE_ORIGIN).href;
+const here = Astro.url.pathname.replace(/\/$/, '') || '/';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0A0D18" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&family=Instrument+Serif&display=swap"
+    />
+  </head>
+
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="site-head">
+      <div class="wrap head-inner">
+        <a class="mark" href="/">MANOURYING</a>
+        <nav aria-label="Primary">
+          {
+            NAV.map((item) => (
+              <a href={item.href} aria-current={here === item.href ? 'page' : undefined}>
+                {item.label}
+              </a>
+            ))
+          }
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class={bare ? '' : 'wrap page'}>
+      <slot />
+    </main>
+
+    <footer class="site-foot">
+      <div class="wrap">
+        <hr class="rule" />
+        <div class="foot-inner">
+          <p class="fine">
+            An art project. Not affiliated with any government, religion, or brand.
+          </p>
+          <nav aria-label="Footer">
+            {NAV.map((item) => <a href={item.href}>{item.label}</a>)}
+          </nav>
+        </div>
+      </div>
+    </footer>
+
+    <style>
+      .skip {
+        position: absolute;
+        left: -9999px;
+      }
+      .skip:focus {
+        left: var(--gutter);
+        top: 10px;
+        z-index: 10;
+        background: var(--panel);
+        padding: 10px 14px;
+        border-radius: 2px;
+      }
+
+      .site-head {
+        border-bottom: 1px solid var(--edge);
+        position: sticky;
+        top: 0;
+        background: color-mix(in srgb, var(--ink) 92%, transparent);
+        backdrop-filter: blur(8px);
+        z-index: 5;
+      }
+      .head-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding-block: 14px;
+        flex-wrap: wrap;
+      }
+      .mark {
+        font-family: var(--mono);
+        font-weight: 500;
+        font-size: 0.75rem;
+        letter-spacing: 0.3em;
+        color: var(--bone);
+        text-decoration: none;
+      }
+      .site-head nav {
+        display: flex;
+        gap: clamp(12px, 2.5vw, 26px);
+        flex-wrap: wrap;
+      }
+      .site-head nav a {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--slate);
+        text-decoration: none;
+      }
+      .site-head nav a:hover,
+      .site-head nav a[aria-current='page'] {
+        color: var(--bone);
+      }
+
+      .page {
+        padding-block: clamp(40px, 8vw, 76px) 80px;
+      }
+
+      .site-foot {
+        margin-top: auto;
+        padding-bottom: 40px;
+      }
+      .foot-inner {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
+        padding-top: 22px;
+      }
+      .site-foot nav {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+      .site-foot nav a {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--dim);
+        text-decoration: none;
+      }
+      .site-foot nav a:hover {
+        color: var(--slate);
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+    </style>
+  </body>
+</html>

@@ -1,0 +1,152 @@
+/*
+ * Design tokens — ported verbatim from the mobile app's `src/ui/tokens.ts`,
+ * which was itself a port of the original prototype's CSS custom properties.
+ *
+ * The site and the app should read as the same object. These values are the
+ * product's identity; do not "improve" them here without changing them there.
+ */
+
+:root {
+  /* page ground — near-black with a blue cast */
+  --ink: #0a0d18;
+  /* raised card ground */
+  --dusk: #12172a;
+  /* the next step up: panels, segmented controls */
+  --panel: #1a2039;
+  /* every hairline */
+  --edge: #252c4a;
+  /* primary text — warm bone, never pure white */
+  --bone: #eae6db;
+  /* secondary text */
+  --slate: #737c9e;
+  /* tertiary — the quiet monospace legal-ish copy */
+  --dim: #5a628a;
+  /* body copy, one step brighter than slate */
+  --mist: #9aa2c0;
+  /* the single accent */
+  --brass: #c9a24d;
+  /* "this is live / real / measured" */
+  --live: #5ed8c6;
+  /* errors and refusals */
+  --warn: #d9705a;
+  /* darker than ink — the ritual ground */
+  --void: #05070e;
+
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+
+  --gutter: clamp(20px, 5vw, 40px);
+  --measure: 34rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+p,
+figure,
+blockquote,
+ul,
+ol {
+  margin: 0;
+}
+
+a {
+  color: var(--brass);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 3px;
+}
+
+/* ---- shared type ---- */
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+.serif {
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.lede {
+  color: var(--mist);
+  font-size: 1.075rem;
+  line-height: 1.7;
+  max-width: var(--measure);
+}
+
+.fine {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  line-height: 1.9;
+  letter-spacing: 0.05em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+.rule {
+  height: 1px;
+  background: var(--edge);
+  border: 0;
+}
+
+/* ---- layout ---- */
+
+.wrap {
+  width: 100%;
+  max-width: 60rem;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.prose p + p {
+  margin-top: 1.1em;
+}
+
+.prose {
+  max-width: var(--measure);
+  color: var(--mist);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

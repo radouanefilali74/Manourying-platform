@@ -1,0 +1,165 @@
+---
+import Base from '../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../config';
+
+/**
+ * The privacy page.
+ *
+ * The spec is blunt about why this matters: ambient audio of a public square
+ * captures bystanders who never consented, and that position will have to be
+ * justified in writing in the EU. Better to have written it down first, in
+ * plain language, than to be drafting it under a regulator's deadline.
+ *
+ * Everything here describes what the software actually does today. Where a
+ * feature is not built yet it says so rather than describing an intention as
+ * though it were a safeguard already in place.
+ */
+
+const UPDATED = '24 August 2026';
+---
+
+<Base
+  title="Manourying — Privacy"
+  description="What the app stores, what it never collects, and the position on recording bystanders in public places."
+>
+  <p class="eyebrow">Privacy</p>
+  <h1 class="serif">What we hold, and what we refuse to</h1>
+  <p class="lede">
+    Short version: there is no account, no name, no email, no advertising identifier, and no
+    third-party analytics. Nothing recorded on your phone leaves it unless you decide it should.
+  </p>
+
+  <section>
+    <h2>What a seat is</h2>
+    <p>
+      A seat is an opaque random token stored on your device. It is not derived from your phone
+      number, your email, your device identifier, or anything else about you, and it cannot be
+      reversed into any of those. Two seats cannot be linked to the same person by us.
+    </p>
+  </section>
+
+  <section>
+    <h2>What the app stores on your device</h2>
+    <ul>
+      <li>Your seat token, in the operating system's secure storage.</li>
+      <li>The measured offset between your phone's clock and real time.</li>
+      <li>Which UTC zone you said you would be standing in.</li>
+      <li>Whether you have armed the moment, and the scheduled local alarm.</li>
+    </ul>
+    <p>
+      All of it is removed when you uninstall the app. None of it is a personal identifier.
+    </p>
+  </section>
+
+  <section>
+    <h2>What we never collect</h2>
+    <ul>
+      <li>Your name, email address, or phone number.</li>
+      <li>Your precise location. The app asks which UTC zone you will be in — a choice you make from a list of twenty-four, not a coordinate.</li>
+      <li>Advertising identifiers, cross-app tracking, or third-party analytics SDKs.</li>
+      <li>Who you sent an invite to. Sending a code opens your own share sheet; the invite is spent when somebody claims it, and the only thing that returns to you is a count.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>The microphone, stated carefully</h2>
+    <p>
+      <strong>Recording is not in the current build at all.</strong> The permission is not
+      requested and the capture code is not shipped. When it is added, these are the rules it will
+      be built to, and they are already written into the codebase as the contract any
+      implementation has to satisfy:
+    </p>
+    <ul>
+      <li>Asked for separately, in its own words. Arming the moment is never treated as consent to record.</li>
+      <li>A fixed six-second window, stopped in code rather than by a timer the interface is trusted to honour.</li>
+      <li>Stored on the device only. There is no automatic-upload setting to get wrong.</li>
+      <li>Nothing is uploaded unless you have listened back to it and then chosen to upload it.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>The bystander problem</h2>
+    <p>
+      This is the part that deserves a straight answer rather than a paragraph of boilerplate.
+      A six-second recording made in a public square captures the voices of people who never
+      installed this app, never agreed to anything, and cannot be asked afterwards.
+    </p>
+    <p>
+      Our position: recordings stay on the device by default, precisely because that keeps the
+      question from arising at all. Any public archive of captured audio will be made of
+      individually cleared submissions — a person deciding, after hearing their own recording,
+      that this specific one may be published — rather than bulk aggregation of whatever the
+      microphones picked up. If that standard cannot be met for a given recording, it does not go
+      in the archive.
+    </p>
+    <p>
+      If you believe a published recording contains you and you did not agree to it, write to{' '}
+      <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> and it will be removed. You do not
+      have to explain yourself or prove anything.
+    </p>
+  </section>
+
+  <section>
+    <h2>This website</h2>
+    <p>
+      No cookies are set and no analytics run. Web fonts are loaded from Google Fonts, which means
+      Google's servers see the request — if that matters to you, a font-blocking extension breaks
+      nothing here.
+    </p>
+  </section>
+
+  <section>
+    <h2>Your rights</h2>
+    <p>
+      Under the GDPR you may ask what is held about you, ask for it to be deleted, and complain to
+      your national supervisory authority. Because a seat is an anonymous token, in most cases the
+      honest answer to “what do you hold about me” is “nothing that identifies you” — and deleting
+      the app deletes the rest. For anything else, write to{' '}
+      <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+    </p>
+  </section>
+
+  <hr class="rule" />
+  <p class="fine">Last updated {UPDATED}. Material changes will be dated here, not quietly edited.</p>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(1.9rem, 5.5vw, 2.8rem);
+    line-height: 1.08;
+    margin-block: 14px 20px;
+  }
+  section {
+    margin-top: clamp(26px, 4vw, 38px);
+  }
+  h2 {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: var(--bone);
+    margin-bottom: 9px;
+  }
+  p,
+  li {
+    color: var(--mist);
+    max-width: var(--measure);
+    line-height: 1.72;
+  }
+  p + p {
+    margin-top: 0.9em;
+  }
+  ul {
+    padding-left: 1.1rem;
+    margin-top: 0.5em;
+  }
+  li + li {
+    margin-top: 0.45em;
+  }
+  strong {
+    color: var(--bone);
+    font-weight: 500;
+  }
+  .fine {
+    margin-top: 20px;
+  }
+</style>

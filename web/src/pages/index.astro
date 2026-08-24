@@ -1,0 +1,200 @@
+---
+import Base from '../layouts/Base.astro';
+import Countdown from '../components/Countdown.astro';
+import { SCORE } from '../content/explainer';
+import { INSTALL_PATH, RITUAL_SECONDS, TONE_HZ } from '../config';
+---
+
+<Base
+  title="Manourying"
+  description="At the instant of the September equinox, everyone holding the app makes the same sound at the same time. Sixteen seconds, then it is over."
+  bare
+>
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">One instant · September equinox 2026</p>
+      <h1 class="serif">Everyone makes the same sound at the same time.</h1>
+      <p class="lede">
+        Four seconds of an open vowel. Then your own name. Then ten seconds of silence.{' '}
+        {RITUAL_SECONDS} seconds in total, on every continent at once — and then it is over
+        for six months.
+      </p>
+
+      <Countdown />
+
+      <div class="actions">
+        <a class="btn" href={INSTALL_PATH}>Get the app</a>
+        <a class="btn ghost" href="/what-this-is">What this actually is</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <hr class="rule" />
+
+    <section class="score">
+      <p class="eyebrow">The shape of it</p>
+      <ol>
+        {
+          SCORE.map((step) => (
+            <li>
+              <span class="mono at">{step.at}</span>
+              <div>
+                <h2 class="serif">{step.heading}</h2>
+                <p>{step.detail}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+      <p class="fine">
+        The exact wording is sealed until seven days before. Its SHA-256 is published now, so you
+        can check afterwards that nothing changed. <a href="/directive">See the hash</a>.
+      </p>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="facts">
+      <div>
+        <p class="eyebrow">The pitch</p>
+        <p class="fact mono">{TONE_HZ} Hz</p>
+        <p class="note">Low enough that any voice can reach it. No training, no language.</p>
+      </div>
+      <div>
+        <p class="eyebrow">The instant</p>
+        <p class="fact mono">14:05 UTC</p>
+        <p class="note">
+          Fixed by orbital mechanics, not by anybody. It means the same thing everywhere.
+        </p>
+      </div>
+      <div>
+        <p class="eyebrow">Notifications</p>
+        <p class="fact mono">Two</p>
+        <p class="note">
+          The directive unseal, and the moment. That is the entire budget, on purpose.
+        </p>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="closing">
+      <h2 class="serif">Why your timing will be “wrong”</h2>
+      <p class="prose">
+        Sound travels 343 metres per second, so two people 340 metres apart physically cannot
+        hear each other at the same instant. Perfect global simultaneity is not possible and is
+        not the goal. Afterwards the app tells you your own deviation from the global mean, in
+        milliseconds — which is the most interesting thing it will ever tell you about yourself.
+      </p>
+      <p class="more"><a href="/faq">Questions people actually ask →</a></p>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .hero {
+    padding-block: clamp(48px, 11vw, 110px) clamp(30px, 6vw, 56px);
+  }
+  h1 {
+    font-size: clamp(2.3rem, 7.5vw, 4.2rem);
+    line-height: 1.02;
+    margin-block: 18px 22px;
+    max-width: 18ch;
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 30px;
+  }
+  .btn {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--brass);
+    padding: 14px 22px;
+    border: 1px solid var(--brass);
+    border-radius: 2px;
+  }
+  .btn.ghost {
+    background: none;
+    color: var(--slate);
+    border-color: var(--edge);
+  }
+  .btn.ghost:hover {
+    color: var(--bone);
+    border-color: var(--slate);
+  }
+
+  section {
+    padding-block: clamp(34px, 6vw, 58px);
+  }
+
+  .score ol {
+    list-style: none;
+    padding: 0;
+    margin-top: 22px;
+  }
+  .score li {
+    display: flex;
+    gap: clamp(14px, 3vw, 26px);
+    padding-bottom: 26px;
+  }
+  .score .at {
+    color: var(--brass);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    padding-top: 8px;
+    min-width: 4.2em;
+  }
+  .score h2 {
+    font-size: clamp(1.25rem, 3.4vw, 1.6rem);
+    line-height: 1.25;
+  }
+  .score p {
+    color: var(--mist);
+    font-size: 0.93rem;
+    margin-top: 7px;
+    max-width: var(--measure);
+  }
+  .score .fine {
+    margin-top: 4px;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+    gap: clamp(22px, 4vw, 40px);
+  }
+  .fact {
+    font-size: 1.8rem;
+    font-weight: 300;
+    margin-top: 8px;
+  }
+  .note {
+    color: var(--slate);
+    font-size: 0.85rem;
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+
+  .closing h2 {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    margin-bottom: 14px;
+  }
+  .more {
+    margin-top: 20px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .more a {
+    text-decoration: none;
+  }
+</style>

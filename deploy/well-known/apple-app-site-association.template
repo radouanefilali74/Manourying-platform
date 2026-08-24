@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "REPLACE_WITH_APPLE_TEAM_ID.com.manourying.app",
+        "paths": ["/gate", "/gate?*", "/install"]
+      }
+    ]
+  }
+}

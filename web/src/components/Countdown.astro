@@ -1,0 +1,149 @@
+---
+import { MOMENT_UTC } from '../config';
+
+/**
+ * The countdown on the landing page.
+ *
+ * Deliberately *not* the same machinery as the app. The app measures its own
+ * clock offset against time authorities because a countdown that wakes you at
+ * the wrong instant is a broken product; this is a web page, it runs on
+ * whatever the visitor's browser believes, and nothing depends on it being
+ * right to the millisecond. Saying so plainly beats implying a precision the
+ * page does not have — the instant itself is printed underneath in UTC, which
+ * is the authoritative fact.
+ *
+ * Renders a readable static state with JavaScript disabled, then enhances.
+ */
+
+const moment = new Date(MOMENT_UTC);
+const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+---
+
+<div class="countdown" data-moment={MOMENT_UTC}>
+  <div class="units" aria-hidden="true">
+    <span class="unit"><b data-part="d">—</b><i>d</i></span>
+    <span class="unit"><b data-part="h">—</b><i>h</i></span>
+    <span class="unit"><b data-part="m">—</b><i>m</i></span>
+    <span class="unit"><b data-part="s">—</b><i>s</i></span>
+  </div>
+
+  <p class="sr-live" data-live aria-live="polite"></p>
+
+  <p class="instant mono">{readable}</p>
+  <p class="local fine" data-local>The September equinox.</p>
+</div>
+
+<style>
+  .countdown {
+    margin-block: clamp(24px, 5vw, 40px);
+  }
+  .units {
+    display: flex;
+    align-items: baseline;
+    gap: clamp(10px, 2.5vw, 22px);
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    display: flex;
+    align-items: baseline;
+  }
+  .unit b {
+    font-weight: 300;
+    font-size: clamp(2.4rem, 9vw, 4.4rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .unit i {
+    font-style: normal;
+    font-size: 0.9rem;
+    color: var(--slate);
+    margin-left: 3px;
+    letter-spacing: 0.1em;
+  }
+  .instant {
+    margin-top: 20px;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    color: var(--brass);
+  }
+  .local {
+    margin-top: 6px;
+  }
+  .sr-live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('.countdown');
+  if (root) {
+    const target = Date.parse(root.dataset.moment!);
+    const parts = {
+      d: root.querySelector<HTMLElement>('[data-part="d"]')!,
+      h: root.querySelector<HTMLElement>('[data-part="h"]')!,
+      m: root.querySelector<HTMLElement>('[data-part="m"]')!,
+      s: root.querySelector<HTMLElement>('[data-part="s"]')!,
+    };
+    const live = root.querySelector<HTMLElement>('[data-live]')!;
+    const local = root.querySelector<HTMLElement>('[data-local]')!;
+
+    // What the instant reads as on this visitor's own clock. Non-obvious and
+    // the single most useful thing the page can tell somebody: it is 09:05 in
+    // New York and 00:05 the next day in Sydney, and people need to know they
+    // will be doing this in the middle of the night so they can plan for it.
+    try {
+      const d = new Date(target);
+      // Formatted in English rather than the browser's locale: the sentence
+      // around it is English, and "15:05 on 23 septembre" reads as a bug even
+      // though each half is correct. The *values* still come from the
+      // visitor's own timezone, which is the part that has to be personal.
+      const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const hour = d.getHours();
+      const note =
+        hour >= 22 || hour < 5
+          ? ' — the middle of your night.'
+          : hour < 9
+            ? ' — early morning where you are.'
+            : '.';
+      local.textContent = `Where you are, that is ${time} on ${date}${note}`;
+      local.setAttribute('title', zone);
+    } catch {
+      /* leave the static fallback in place */
+    }
+
+    let lastAnnounced = -1;
+    const pad = (n: number) => String(Math.max(0, Math.floor(n))).padStart(2, '0');
+
+    const tick = () => {
+      const left = target - Date.now();
+      if (left <= 0) {
+        parts.d.textContent = parts.h.textContent = '00';
+        parts.m.textContent = parts.s.textContent = '00';
+        live.textContent = 'The moment has passed.';
+        return;
+      }
+      const s = left / 1000;
+      parts.d.textContent = pad(s / 86400);
+      parts.h.textContent = pad((s / 3600) % 24);
+      parts.m.textContent = pad((s / 60) % 60);
+      parts.s.textContent = pad(s % 60);
+
+      // Announce once a day rather than once a second — a screen reader
+      // narrating a ticking clock forever is unusable.
+      const days = Math.floor(s / 86400);
+      if (days !== lastAnnounced) {
+        lastAnnounced = days;
+        live.textContent = `${days} days until the moment.`;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }
+</script>

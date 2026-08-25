@@ -34,9 +34,19 @@ import { redis, clearPattern } from '../src/redis.ts';
 const databaseUrl = process.env.DATABASE_URL ?? '';
 const isTestDatabase = /_test(\?|$)/.test(databaseUrl);
 
-const skip = isTestDatabase
-  ? false
-  : 'DATABASE_URL does not name a *_test database — refusing to run against real data.';
+/**
+ * Two guards, not one. Postgres isolation is not enough: claimSeat increments
+ * counters in REDIS, which is keyed by URL and not by database — so a test run
+ * pointed at the live Redis index silently inflates the published seat count.
+ * That happened once; forty phantom seats had to be corrected by hand.
+ */
+const onTestRedis = /\/(4|1[0-5])$/.test(process.env.REDIS_URL ?? '');
+
+const skip = !isTestDatabase
+  ? 'DATABASE_URL does not name a *_test database — refusing to run against real data.'
+  : !onTestRedis
+    ? 'REDIS_URL points at the live counter database — set it to index 4 in server/.env.test.'
+    : false;
 
 const EMAIL = 'test-admin@example.com';
 const PASSWORD = 'correct-horse-battery-staple';

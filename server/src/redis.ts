@@ -14,13 +14,23 @@ export const KEY_PREFIX = 'mnr:';
 
 export const redis = new Redis(env.redisUrl, {
   keyPrefix: KEY_PREFIX,
+
   // Bounded, not unbounded: a command retries three times and then fails, so a
   // request that needs Redis errors while the operator is watching rather than
-  // hanging. The offline queue stays ON so that commands issued during the
-  // brief initial connect are held rather than thrown away — with lazyConnect
-  // and no queue, the very first /healthz reports Redis down purely because
-  // nothing had connected yet.
+  // hanging.
   maxRetriesPerRequest: 3,
+
+  // Connect on first use, not on import — but keep the offline queue (the
+  // default) so commands issued during that first connect are held rather than
+  // thrown away. Both halves matter:
+  //
+  //   without lazyConnect, merely importing this module opens a socket, and a
+  //   test suite that SKIPS itself never reaches its `after` hook to close it,
+  //   so the process hangs forever instead of exiting;
+  //
+  //   without the offline queue, the very first /healthz reports Redis down
+  //   purely because nothing had connected yet.
+  lazyConnect: true,
 });
 
 // Connection errors are reported by the callers that hit them. Without a

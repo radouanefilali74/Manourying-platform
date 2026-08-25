@@ -21,9 +21,20 @@ import { claimSeat, mintCode, INVITES_PER_SEAT } from '../src/domain/invites.ts'
 import { mintToken } from '../src/lib/tokens.ts';
 
 const databaseUrl = process.env.DATABASE_URL ?? '';
-const skip = /_test(\?|$)/.test(databaseUrl)
-  ? false
-  : 'DATABASE_URL does not name a *_test database — refusing to run against real data.';
+const isTestDatabase = /_test(\?|$)/.test(databaseUrl);
+/**
+ * Two guards, not one. Postgres isolation is not enough: claimSeat increments
+ * counters in REDIS, which is keyed by URL and not by database — so a test run
+ * pointed at the live Redis index silently inflates the published seat count.
+ * That happened once; forty phantom seats had to be corrected by hand.
+ */
+const onTestRedis = /\/(4|1[0-5])$/.test(process.env.REDIS_URL ?? '');
+
+const skip = !isTestDatabase
+  ? 'DATABASE_URL does not name a *_test database — refusing to run against real data.'
+  : !onTestRedis
+    ? 'REDIS_URL points at the live counter database — set it to index 4 in server/.env.test.'
+    : false;
 
 /** Seeds one founder seat holding one spendable code. */
 async function seedCode(): Promise<{ code: string; parentSeatId: number }> {

@@ -35,6 +35,12 @@ export async function buildServer(): Promise<FastifyInstance> {
     // nginx is the only thing that can reach this socket, so its
     // X-Forwarded-For is trustworthy — and it is what the login lockout keys on.
     trustProxy: true,
+
+    // Deprecated in fastify@5 and removed in @6, which wants a `logController`
+    // CLASS rather than a flag. Left as-is on purpose: the replacement is a
+    // subclass to write and test, the warning is one line once per boot, and
+    // nginx's access log already records every request. Revisit when upgrading
+    // to fastify@6, not before.
     disableRequestLogging: true,
     bodyLimit: 256 * 1024,
   });

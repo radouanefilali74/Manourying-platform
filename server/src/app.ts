@@ -23,6 +23,7 @@ import sessionPlugin from './plugins/session.ts';
 import { CSRF_HEADER } from './plugins/csrf.ts';
 import authRoutes from './routes/admin/auth.ts';
 import counterRoutes from './routes/admin/counters.ts';
+import seatRoutes from './routes/admin/seats.ts';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -104,6 +105,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await app.register(authRoutes);
   await app.register(counterRoutes);
+  await app.register(seatRoutes);
 
   /**
    * The app-facing routes (/seats, /waitlist, /cells, /counts, /echo/latest)
@@ -114,6 +116,8 @@ export async function buildServer(): Promise<FastifyInstance> {
    */
   if (env.publicApi) {
     app.log.warn('PUBLIC_API is on — the app-facing routes are mounted');
+    const { default: publicSeatRoutes } = await import('./routes/public/seats.ts');
+    await app.register(publicSeatRoutes);
   }
 
   return app;

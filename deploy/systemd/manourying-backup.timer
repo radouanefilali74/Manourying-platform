@@ -1,0 +1,20 @@
+[Unit]
+Description=Daily Manourying database backup
+Documentation=file:///home/ubuntu/projects/Manourying-platform/deploy/backup-db.sh
+
+[Timer]
+# 03:20 UTC daily. Offset from the top of the hour on purpose: certbot's renewal
+# timer and legal-tech's own jobs cluster there, and three things dumping and
+# compressing at once on a shared box is avoidable contention.
+OnCalendar=*-*-* 03:20:00 UTC
+
+# If the box was asleep or down at 03:20, run on the next boot rather than
+# silently skipping a day.
+Persistent=true
+
+# Spread across five minutes so a fleet — should there ever be one — does not
+# stampede.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

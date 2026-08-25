@@ -1,0 +1,92 @@
+# admin.manourying.manouri.ovh — the admin panel
+#
+# A built Vite SPA, served as static files. No application process: the panel
+# talks to api.manourying.manouri.ovh from the browser, so there is nothing to
+# proxy here and port 8081 stays free.
+#
+# Install (certificate first — see the api vhost's header for why):
+#   sudo certbot certonly --webroot -w /var/www/html --key-type ecdsa \
+#        -d admin.manourying.manouri.ovh
+#   ./deploy/publish-admin.sh
+#   sudo cp deploy/nginx/admin.manourying.manouri.ovh /etc/nginx/sites-available/
+#   sudo ln -sfn /etc/nginx/sites-available/admin.manourying.manouri.ovh /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Worth knowing before this goes up: Certificate Transparency logs are public
+# and continuously mined, so this hostname will be scanned within hours of the
+# certificate issuing. The :444 catchall stops protecting it the moment it
+# becomes a real vhost. If you have a stable IP, an allow/deny block below is
+# the cheapest hardening available.
+
+# Cache policy as a map, never a per-location add_header — a location-level
+# add_header REPLACES every inherited header and would silently drop the CSP
+# from /assets/*. Same trap the public site's vhost documents at length.
+map $uri $manourying_admin_cache {
+    default    "no-store";
+    ~^/assets/ "public, max-age=31536000, immutable";
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name admin.manourying.manouri.ovh;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name admin.manourying.manouri.ovh;
+
+    ssl_certificate         /etc/letsencrypt/live/admin.manourying.manouri.ovh/fullchain.pem;
+    ssl_certificate_key     /etc/letsencrypt/live/admin.manourying.manouri.ovh/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/admin.manourying.manouri.ovh/chain.pem;
+
+    root /srv/manourying/admin;
+    index index.html;
+
+    limit_conn connlimit 20;
+    limit_req zone=general burst=20 nodelay;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+
+    # Stricter than the public site's strict-origin-when-cross-origin: this
+    # panel's URLs contain seat and invite identifiers, and none of them should
+    # leave in a Referer header.
+    add_header Referrer-Policy no-referrer always;
+
+    # An internal tool that can revoke invites has no business being indexed.
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    # `connect-src` is the one directive the public site does not have and this
+    # one must: calling the API on another origin is the panel's entire job.
+    # No Google Fonts here either — the panel uses tokens.css's fallback stacks,
+    # so it touches zero third-party origins, which is the right posture for the
+    # surface that can revoke every invite in the system.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src https://api.manourying.manouri.ovh; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" always;
+
+    add_header Cache-Control $manourying_admin_cache always;
+
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # SPA fallback. Deliberately different from the public site's
+    # `try_files $uri $uri.html $uri/index.html =404`, which exists because Astro
+    # builds with `build.format: 'file'`. A client-routed SPA needs the index
+    # served for every unknown path instead.
+    location / {
+        try_files $uri /index.html;
+    }
+}

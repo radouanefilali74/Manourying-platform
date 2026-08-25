@@ -1,0 +1,147 @@
+# api.manourying.manouri.ovh — the Manourying API
+#
+# Fastify on 127.0.0.1:8080, behind nginx. Modelled on the working reverse-proxy
+# pattern in /etc/nginx/sites-available/law.manouri.ovh, with the differences
+# called out where they matter.
+#
+# Install (AFTER the certificate exists and the service is running — nginx
+# refuses to start on a vhost referencing a missing cert, and that failure takes
+# law.manouri.ovh down with it):
+#
+#   sudo certbot certonly --webroot -w /var/www/html --key-type ecdsa \
+#        -d api.manourying.manouri.ovh
+#   sudo systemctl enable --now manourying-api
+#   curl -sf http://127.0.0.1:8080/healthz
+#   sudo cp deploy/nginx/api.manourying.manouri.ovh /etc/nginx/sites-available/
+#   sudo ln -sfn /etc/nginx/sites-available/api.manourying.manouri.ovh /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#   curl -sI https://law.manouri.ovh | head -3     # ALWAYS check the neighbour
+
+# The upstream lives here rather than in nginx.conf (where legaltech_api and
+# legaltech_web are declared) on purpose: removing this vhost must leave
+# `nginx -t` clean without a second edit to a shared file.
+upstream manourying_api {
+    server 127.0.0.1:8080;
+    keepalive 16;
+}
+
+# ---- HTTP: ACME challenge + redirect to HTTPS ----
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.manourying.manouri.ovh;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---- HTTPS ----
+server {
+    # No `http2` token here, for the same reason as the public site's vhost: it
+    # is a listening-socket option already set by the law vhost on :443, and
+    # repeating it makes every `nginx -t` warn.
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name api.manourying.manouri.ovh;
+
+    ssl_certificate         /etc/letsencrypt/live/api.manourying.manouri.ovh/fullchain.pem;
+    ssl_certificate_key     /etc/letsencrypt/live/api.manourying.manouri.ovh/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/api.manourying.manouri.ovh/chain.pem;
+
+    # HSTS is nginx's to own, as on law.manouri.ovh. Strip any the application
+    # emits so the browser cannot end up honouring a weaker duplicate.
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    proxy_hide_header Strict-Transport-Security;
+
+    # One CSP or none. A JSON API needs none, and two sources of a CSP means the
+    # browser enforces their intersection — the trap law.manouri.ovh documents.
+    # Fastify is deliberately configured without @fastify/helmet for this reason.
+    proxy_hide_header Content-Security-Policy;
+    proxy_hide_header X-Powered-By;
+
+    add_header X-Content-Type-Options nosniff always;
+
+    # NOTE: no Cache-Control here. `add_header` APPENDS to upstream headers
+    # rather than replacing them, and the API sets its own per route (no-store
+    # for /admin/*, a long TTL for the counts). Two Cache-Control headers is
+    # worse than either one alone.
+
+    # The http-level 50m in nginx.conf exists for legal-tech's PDF ingest. This
+    # API takes small JSON bodies and nothing else; Fastify caps at 256 KiB too.
+    client_max_body_size 256k;
+
+    limit_conn connlimit 20;
+
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location = /healthz {
+        access_log off;
+        proxy_pass http://manourying_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Connection "";
+    }
+
+    # Login gets its own, much tighter zone. The application also locks out per
+    # IP and per email in Redis; this sheds a flood before it ever reaches a
+    # 64 MiB argon2 verification.
+    location = /admin/auth/login {
+        limit_req zone=login burst=5 nodelay;
+
+        proxy_pass http://manourying_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+        proxy_read_timeout 30s;
+    }
+
+    # No trailing slash on proxy_pass: the /admin prefix is preserved, because
+    # the API registers its routes AT /admin/... — same reason as law's /api/.
+    location /admin/ {
+        limit_req zone=api burst=50 nodelay;
+
+        proxy_pass http://manourying_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Empty, NOT $connection_upgrade as on law.manouri.ovh: there are no
+        # websockets here, and an empty Connection header is what lets the
+        # `keepalive 16` above actually pool upstream connections.
+        proxy_set_header Connection        "";
+
+        proxy_connect_timeout  5s;
+        proxy_send_timeout    30s;
+        proxy_read_timeout    30s;
+    }
+
+    # ---- phase 4: the app-facing routes ------------------------------------
+    # Deliberately NOT proxied. The mobile app is still on MockService, so
+    # nothing legitimate calls these — anything reachable here today would be
+    # abuse surface and nothing else. Exposing them requires TWO deliberate
+    # switches: uncommenting this, and PUBLIC_API=true in server/.env.
+    #
+    # location /seats        { ... }
+    # location /waitlist     { ... }
+    # location /cells        { ... }
+    # location /counts       { ... }
+    # location = /echo/latest { ... }
+
+    location / {
+        return 404;
+    }
+}

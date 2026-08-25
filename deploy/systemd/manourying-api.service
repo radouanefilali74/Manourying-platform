@@ -1,0 +1,53 @@
+[Unit]
+Description=Manourying API (Fastify, 127.0.0.1:8080)
+Documentation=https://api.manourying.manouri.ovh/healthz
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/Manourying-platform/server
+Environment=NODE_ENV=production
+
+# NOTE: absolute nvm path — update this if the version under
+# /home/ubuntu/.nvm/versions/node/ changes. Same caveat as legaltech-api.service
+# next door, and the same failure mode if it is forgotten: the unit simply will
+# not start after a Node upgrade.
+#
+# Node 24's --env-file replaces dotenv, so the app has no dotenv dependency.
+# Deliberately NOT `EnvironmentFile=`: that loads DATABASE_URL's password into
+# the unit's environment, where `systemctl show manourying-api` prints it in
+# clear text to any user who can run it. The path is not a secret; the file is
+# (chmod 600).
+ExecStart=/home/ubuntu/.nvm/versions/node/v24.19.0/bin/node --env-file=/home/ubuntu/projects/Manourying-platform/server/.env dist/index.js
+
+Restart=always
+RestartSec=5
+SyslogIdentifier=manourying-api
+
+# Argon2id is configured at 64 MiB per hash, and the cost is memory × concurrent
+# logins. This cap is what stops a burst of login attempts from becoming a
+# memory problem for the whole box — which matters because law.manouri.ovh lives
+# here too.
+MemoryMax=512M
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+
+# No ReadWritePaths: this service logs to stdout → journald and writes no files
+# at all. ProtectHome=read-only therefore never bites — but be aware that the
+# first thing which ever tries to write inside the working directory (an upload,
+# a pidfile, a cache) will fail in a confusing way until this is revisited.
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

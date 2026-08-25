@@ -1,0 +1,19 @@
+[Unit]
+Description=Manourying database backup
+Documentation=file:///home/ubuntu/projects/Manourying-platform/deploy/backup-db.sh
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/Manourying-platform
+ExecStart=/home/ubuntu/projects/Manourying-platform/deploy/backup-db.sh
+SyslogIdentifier=manourying-backup
+
+# The script uses sudo for pg_dump and for writing into /srv, so it cannot be
+# locked down as far as the API is. Keep the cheap protections that do not
+# conflict with that.
+NoNewPrivileges=false
+PrivateTmp=true

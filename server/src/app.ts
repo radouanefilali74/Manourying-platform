@@ -22,6 +22,7 @@ import { AppError } from './lib/errors.ts';
 import sessionPlugin from './plugins/session.ts';
 import { CSRF_HEADER } from './plugins/csrf.ts';
 import authRoutes from './routes/admin/auth.ts';
+import counterRoutes from './routes/admin/counters.ts';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -102,6 +103,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   await app.register(authRoutes);
+  await app.register(counterRoutes);
 
   /**
    * The app-facing routes (/seats, /waitlist, /cells, /counts, /echo/latest)

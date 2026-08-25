@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Manourying admin panel — Vite + React SPA, served as static files from admin.manourying.manouri.ovh.",
+  "description": "Manourying admin panel \u2014 Vite + React SPA, served as static files from admin.manourying.manouri.ovh.",
   "engines": {
     "node": ">=22.12.0"
   },

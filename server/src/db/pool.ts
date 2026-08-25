@@ -6,7 +6,7 @@
  * makes that easy, it is a mistake.
  */
 import pg from 'pg';
-import { env } from '../env.js';
+import { env } from '../env.ts';
 
 /**
  * bigint columns come back as strings by default, because a Postgres bigint can

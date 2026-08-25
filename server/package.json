@@ -16,7 +16,7 @@
     "db:migrate": "node --env-file=.env src/db/migrate.ts",
     "db:seed": "node --env-file=.env src/bin/seed-dev.ts",
     "admin": "node --env-file=.env src/bin/admin.ts",
-    "test": "node --env-file-if-exists=.env --test test/*.test.ts"
+    "test": "node --env-file-if-exists=.env --env-file-if-exists=.env.test --test test/*.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
@@ -24,6 +24,7 @@
     "@fastify/rate-limit": "^10.2.2",
     "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.2.1",
+    "fastify-plugin": "^5.0.1",
     "ioredis": "^5.4.2",
     "pg": "^8.13.1"
   },

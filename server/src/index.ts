@@ -3,9 +3,9 @@
  *
  *   ExecStart=…/node --env-file=…/server/.env dist/index.js
  */
-import { buildServer } from './app.js';
-import { env } from './env.js';
-import { pool } from './db/pool.js';
+import { buildServer } from './app.ts';
+import { env } from './env.ts';
+import { pool } from './db/pool.ts';
 
 const app = await buildServer();
 

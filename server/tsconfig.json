@@ -13,7 +13,17 @@
     "exactOptionalPropertyTypes": true,
     "verbatimModuleSyntax": true,
 
+    // Local imports are written with a .ts extension and rewritten to .js on
+    // emit (TS 5.7's rewriteRelativeImportExtensions). That combination is what
+    // lets ONE set of sources both run directly under Node 24's native type
+    // stripping — which does not rewrite specifiers, so it needs the real .ts
+    // path — and compile to dist/ for systemd, which needs .js. Removing either
+    // flag breaks one of those two.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
     "resolveJsonModule": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
     "sourceMap": true,
     "declaration": false,

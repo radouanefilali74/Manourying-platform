@@ -75,6 +75,23 @@ be refactored around and a `CHECK` cannot. Each is exercised in `server/test/`:
 | Cell removal is terminal | `cells_removal_is_final()` trigger | `0004` |
 | Counters never go backwards | `counters_never_decrease()` trigger | `0007` |
 
+### An admin who has acted cannot be deleted
+
+`audit_log.admin_id REFERENCES admins(id)` has no `ON DELETE` clause, so Postgres refuses:
+
+```
+ERROR:  update or delete on table "admins" violates foreign key constraint
+        "audit_log_admin_id_fkey" on table "audit_log"
+DETAIL:  Key (id)=(1) is still referenced from table "audit_log".
+```
+
+That is the intended behaviour, not an oversight. The trail has to outlive the account, and an
+`ON DELETE SET NULL` would quietly turn "Radouane revoked these 40 invites" into "somebody did".
+Accounts are **disabled**, never removed — which is why the CLI offers `disable`/`enable` and no
+`delete`. Code that needs to reset an admin should upsert on `email`.
+
+### The counter escape hatch
+
 The counter trigger has a deliberate escape hatch for the rare genuine correction:
 
 ```sql

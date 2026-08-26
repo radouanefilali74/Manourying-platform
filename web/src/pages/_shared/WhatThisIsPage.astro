@@ -1,0 +1,80 @@
+---
+import Base from '../../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../../config';
+import { getDictionary, type Locale } from '../../i18n';
+
+/**
+ * The markup lives here, once. Every per-locale route file under
+ * `src/pages/` (and `src/pages/<locale>/`) is a thin stub that just renders
+ * this with a `locale` prop — see `src/pages/what-this-is.astro` for the
+ * English one.
+ */
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale).whatThisIs;
+---
+
+<Base title={t.title} description={t.description} locale={locale} page="whatThisIs">
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="serif">{t.h1}</h1>
+
+  <p class="lede intro">{t.intro}</p>
+
+  <div class="sections">
+    {
+      t.sections.map((section) => (
+        <section>
+          <h2>{section.heading}</h2>
+          <p>{section.body}</p>
+        </section>
+      ))
+    }
+
+    <section>
+      <h2>{t.whoBehindHeading}</h2>
+      <p>
+        {t.whoBehindBody} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+      </p>
+    </section>
+  </div>
+
+  <hr class="rule" />
+
+  <p class="fine">{t.closingFine}</p>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(2.1rem, 6.5vw, 3.2rem);
+    line-height: 1.05;
+    margin-block: 14px 22px;
+  }
+  .intro {
+    margin-bottom: 8px;
+  }
+  .sections {
+    margin-block: clamp(28px, 5vw, 46px);
+  }
+  .sections section + section {
+    margin-top: clamp(26px, 4vw, 38px);
+  }
+  h2 {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: var(--bone);
+    margin-bottom: 8px;
+  }
+  .sections p {
+    color: var(--mist);
+    max-width: var(--measure);
+    line-height: 1.72;
+  }
+  .fine {
+    margin-top: 22px;
+    max-width: var(--measure);
+  }
+</style>

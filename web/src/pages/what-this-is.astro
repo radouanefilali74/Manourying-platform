@@ -1,7 +1,5 @@
 ---
-import Base from '../layouts/Base.astro';
-import { EXPLAINER } from '../content/explainer';
-import { CONTACT_EMAIL } from '../config';
+import WhatThisIsPage from './_shared/WhatThisIsPage.astro';
 
 /**
  * The page the spec demands, at a stable URL that must never move.
@@ -9,81 +7,10 @@ import { CONTACT_EMAIL } from '../config';
  * If this ever needs renaming, leave a redirect: the URL is printed in App
  * Store review notes and linked from inside the app, and a dead link here is
  * worse than an ugly one.
+ *
+ * The actual markup lives in `_shared/WhatThisIsPage.astro` — this file is
+ * just the English route, unprefixed because English is the default locale.
  */
 ---
 
-<Base
-  title="What Manourying actually is"
-  description="A plain-language explanation of the project, the equinox, what the app does to your phone, and what we do not claim."
->
-  <p class="eyebrow">Plain language</p>
-  <h1 class="serif">What this actually is</h1>
-
-  <p class="lede intro">
-    No mystery here on purpose. The only thing that is genuinely secret is the exact wording of
-    the directive, and even that is published seven days before the equinox with its hash
-    available from the start. Everything else is written below.
-  </p>
-
-  <div class="sections">
-    {
-      EXPLAINER.map((section) => (
-        <section>
-          <h2>{section.heading}</h2>
-          <p>{section.body}</p>
-        </section>
-      ))
-    }
-
-    <section>
-      <h2>Who is behind it</h2>
-      <p>
-        A small independent project, not a company, a campaign, or a movement. It sells nothing,
-        collects no advertising identifiers, and is not affiliated with any government, religion,
-        or brand. If you want to ask something directly, write to{' '}
-        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
-      </p>
-    </section>
-  </div>
-
-  <hr class="rule" />
-
-  <p class="fine">
-    This page exists because an unexplained countdown app that asks for microphone access and
-    helps organise public gatherings looks, to a reasonable sceptic, like something other than an
-    art project. That suspicion is fair. This is the answer to it.
-  </p>
-</Base>
-
-<style>
-  h1 {
-    font-size: clamp(2.1rem, 6.5vw, 3.2rem);
-    line-height: 1.05;
-    margin-block: 14px 22px;
-  }
-  .intro {
-    margin-bottom: 8px;
-  }
-  .sections {
-    margin-block: clamp(28px, 5vw, 46px);
-  }
-  .sections section + section {
-    margin-top: clamp(26px, 4vw, 38px);
-  }
-  h2 {
-    font-family: var(--sans);
-    font-weight: 500;
-    font-size: 1.05rem;
-    color: var(--bone);
-    margin-bottom: 8px;
-  }
-  .sections p {
-    color: var(--mist);
-    max-width: var(--measure);
-    line-height: 1.72;
-  }
-  .fine {
-    margin-top: 22px;
-    max-width: var(--measure);
-  }
-</style>
+<WhatThisIsPage locale="en" />

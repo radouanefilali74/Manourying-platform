@@ -1,27 +1,95 @@
 ---
 import '../styles/tokens.css';
-import { NAV, SITE_ORIGIN } from '../config';
+import { getRelativeLocaleUrl } from 'astro:i18n';
+import { SITE_ORIGIN } from '../config';
+import {
+  getDictionary,
+  LOCALE_FONT_QUERY,
+  LOCALE_SANS_STACK,
+  PAGE_LOCALES,
+  PAGE_PATH,
+  RTL_LOCALES,
+  type Locale,
+  type NavKey,
+  type PageKey,
+} from '../i18n';
 
 interface Props {
   title: string;
   description: string;
   /** Set on the landing page, which carries its own full-bleed hero. */
   bare?: boolean;
+  /**
+   * Which page this is, in the locale/page registry (`src/i18n/pages.ts`).
+   * Drives the nav's hrefs, the hreflang tags, and the language switcher —
+   * all three read `PAGE_LOCALES[page]` so none of them can point at a
+   * locale that has not actually been translated yet.
+   */
+  page: PageKey;
+  /** Defaults to English — every page not yet migrated to the dictionary omits this and is unaffected. */
+  locale?: Locale;
 }
 
-const { title, description, bare = false } = Astro.props;
+const { title, description, bare = false, page, locale = 'en' } = Astro.props;
+
+const dict = getDictionary(locale);
+const isRtl = RTL_LOCALES.has(locale);
+const availableLocales = PAGE_LOCALES[page];
+
 const canonical = new URL(Astro.url.pathname, SITE_ORIGIN).href;
 const here = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+const NAV_ITEMS: { key: NavKey; page: PageKey }[] = [
+  { key: 'whatThisIs', page: 'whatThisIs' },
+  { key: 'faq', page: 'faq' },
+  { key: 'directive', page: 'directive' },
+  { key: 'privacy', page: 'privacy' },
+  { key: 'press', page: 'press' },
+];
+
+/**
+ * A nav destination links to the current locale's version of that page ONLY
+ * if that page/locale pair actually exists (`PAGE_LOCALES`); otherwise it
+ * falls back to the canonical English page rather than a 404. This is what
+ * lets the site ship locale by locale, page by page, without ever showing a
+ * broken link mid-rollout.
+ */
+function navHref(target: PageKey): string {
+  return PAGE_LOCALES[target].includes(locale)
+    ? getRelativeLocaleUrl(locale, PAGE_PATH[target])
+    : PAGE_PATH[target];
+}
+
+const localeFontQuery = LOCALE_FONT_QUERY[locale];
+const localeSansStack = LOCALE_SANS_STACK[locale];
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={locale} dir={isRtl ? 'rtl' : 'ltr'}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+
+    {
+      // hreflang, one per locale this page actually has, plus x-default
+      // pointing at the English version — which every page has, since English
+      // is the baseline every entry in PAGE_LOCALES includes.
+      availableLocales.map((l) => (
+        <link
+          rel="alternate"
+          hreflang={l}
+          href={new URL(getRelativeLocaleUrl(l, PAGE_PATH[page]), SITE_ORIGIN).href}
+        />
+      ))
+    }
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href={new URL(PAGE_PATH[page], SITE_ORIGIN).href}
+    />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
@@ -38,23 +106,53 @@ const here = Astro.url.pathname.replace(/\/$/, '') || '/';
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&family=Instrument+Serif&display=swap"
     />
+    {
+      // Extra script coverage IBM Plex / Instrument Serif do not have — only
+      // requested on the locales that need it. See src/i18n/fonts.ts.
+      localeFontQuery && (
+        <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?${localeFontQuery}&display=swap`} />
+      )
+    }
+    {
+      localeSansStack && (
+        <style set:html={`:root { --sans: ${localeSansStack}, var(--sans); }`} />
+      )
+    }
   </head>
 
   <body>
-    <a class="skip" href="#main">Skip to content</a>
+    <a class="skip" href="#main">{dict.common.skipToContent}</a>
 
     <header class="site-head">
       <div class="wrap head-inner">
-        <a class="mark" href="/">MANOURYING</a>
+        <a class="mark" href={navHref('index')}>MANOURYING</a>
         <nav aria-label="Primary">
           {
-            NAV.map((item) => (
-              <a href={item.href} aria-current={here === item.href ? 'page' : undefined}>
-                {item.label}
-              </a>
-            ))
+            NAV_ITEMS.map((item) => {
+              const href = navHref(item.page);
+              return (
+                <a href={href} aria-current={here === href ? 'page' : undefined}>
+                  {dict.common.nav[item.key]}
+                </a>
+              );
+            })
           }
         </nav>
+        {
+          availableLocales.length > 1 && (
+            <nav class="lang-switch" aria-label="Language">
+              {availableLocales.map((l) => (
+                <a
+                  href={getRelativeLocaleUrl(l, PAGE_PATH[page])}
+                  aria-current={l === locale ? 'page' : undefined}
+                  lang={l}
+                >
+                  {l.toUpperCase()}
+                </a>
+              ))}
+            </nav>
+          )
+        }
       </div>
     </header>
 
@@ -65,12 +163,20 @@ const here = Astro.url.pathname.replace(/\/$/, '') || '/';
     <footer class="site-foot">
       <div class="wrap">
         <hr class="rule" />
+        {
+          dict.common.translationNotice && (
+            <p class="fine translation-notice">{dict.common.translationNotice}</p>
+          )
+        }
         <div class="foot-inner">
-          <p class="fine">
-            An art project. Not affiliated with any government, religion, or brand.
-          </p>
+          <p class="fine">{dict.common.footerTagline}</p>
           <nav aria-label="Footer">
-            {NAV.map((item) => <a href={item.href}>{item.label}</a>)}
+            {
+              NAV_ITEMS.map((item) => {
+                const href = navHref(item.page);
+                return <a href={href}>{dict.common.nav[item.key]}</a>;
+              })
+            }
           </nav>
         </div>
       </div>
@@ -79,10 +185,10 @@ const here = Astro.url.pathname.replace(/\/$/, '') || '/';
     <style>
       .skip {
         position: absolute;
-        left: -9999px;
+        inset-inline-start: -9999px;
       }
       .skip:focus {
-        left: var(--gutter);
+        inset-inline-start: var(--gutter);
         top: 10px;
         z-index: 10;
         background: var(--panel);
@@ -131,6 +237,17 @@ const here = Astro.url.pathname.replace(/\/$/, '') || '/';
       .site-head nav a[aria-current='page'] {
         color: var(--bone);
       }
+      .lang-switch {
+        gap: clamp(8px, 1.5vw, 14px) !important;
+        padding-inline-start: clamp(12px, 2.5vw, 26px);
+        border-inline-start: 1px solid var(--edge);
+      }
+      .lang-switch a {
+        color: var(--dim) !important;
+      }
+      .lang-switch a[aria-current='page'] {
+        color: var(--brass) !important;
+      }
 
       .page {
         padding-block: clamp(40px, 8vw, 76px) 80px;
@@ -139,6 +256,10 @@ const here = Astro.url.pathname.replace(/\/$/, '') || '/';
       .site-foot {
         margin-top: auto;
         padding-bottom: 40px;
+      }
+      .translation-notice {
+        margin-top: 14px;
+        color: var(--dim);
       }
       .foot-inner {
         display: flex;

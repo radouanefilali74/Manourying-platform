@@ -1,8 +1,9 @@
 import type { Dictionary, Locale } from './dictionary';
 import { en } from './en';
 import { fr } from './fr';
+import { ar } from './ar';
 
-const dictionaries: Partial<Record<Locale, Dictionary>> = { en, fr };
+const dictionaries: Partial<Record<Locale, Dictionary>> = { en, fr, ar };
 
 /**
  * Falls back to English if a locale has no dictionary file yet. This should

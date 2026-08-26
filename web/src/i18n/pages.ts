@@ -36,7 +36,7 @@ export const PAGE_PATH: Record<PageKey, string> = {
  */
 export const PAGE_LOCALES: Record<PageKey, readonly Locale[]> = {
   index: ['en'],
-  whatThisIs: ['en', 'fr'],
+  whatThisIs: ['en', 'fr', 'ar'],
   faq: ['en'],
   privacy: ['en'],
   press: ['en'],

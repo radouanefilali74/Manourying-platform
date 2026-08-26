@@ -24,6 +24,20 @@ export const PAGE_PATH: Record<PageKey, string> = {
   notFound: '/404',
 };
 
+const ALL_LOCALES: readonly Locale[] = [
+  'en',
+  'fr',
+  'ar',
+  'es',
+  'de',
+  'ko',
+  'zh',
+  'ja',
+  'ru',
+  'it',
+  'pt',
+];
+
 /**
  * Which locales currently have REAL, migrated content for each page — the
  * single source of truth the nav, the language switcher, and hreflang all
@@ -33,15 +47,19 @@ export const PAGE_PATH: Record<PageKey, string> = {
  * link to it: this is what stops the nav or the switcher from ever pointing
  * at a 404 mid-rollout. Update this in the SAME commit a page gains a new
  * locale — nowhere else, or the switcher and the nav can drift apart.
+ *
+ * All 9 pages now have all 11 locales — every dictionary is complete
+ * (verified by `getDictionary` no longer needing its fallback in practice)
+ * and every locale route file exists under src/pages/<locale>/.
  */
 export const PAGE_LOCALES: Record<PageKey, readonly Locale[]> = {
-  index: ['en', 'fr', 'ar'],
-  whatThisIs: ['en', 'fr', 'ar'],
-  faq: ['en', 'fr', 'ar'],
-  privacy: ['en', 'fr', 'ar'],
-  press: ['en', 'fr', 'ar'],
-  install: ['en', 'fr', 'ar'],
-  directive: ['en', 'fr', 'ar'],
-  gate: ['en', 'fr', 'ar'],
-  notFound: ['en', 'fr', 'ar'],
+  index: ALL_LOCALES,
+  whatThisIs: ALL_LOCALES,
+  faq: ALL_LOCALES,
+  privacy: ALL_LOCALES,
+  press: ALL_LOCALES,
+  install: ALL_LOCALES,
+  directive: ALL_LOCALES,
+  gate: ALL_LOCALES,
+  notFound: ALL_LOCALES,
 };

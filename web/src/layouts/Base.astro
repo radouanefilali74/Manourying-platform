@@ -5,6 +5,7 @@ import { SITE_ORIGIN } from '../config';
 import {
   getDictionary,
   LOCALE_FONT_QUERY,
+  LOCALE_NAME,
   LOCALE_SANS_STACK,
   PAGE_LOCALES,
   PAGE_PATH,
@@ -139,18 +140,34 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
           }
         </nav>
         {
+          // A native <details>/<summary> disclosure, not a <select>: a <select>
+          // needs JavaScript to navigate on change, and this site has to work
+          // with JS disabled (CLAUDE.md). <details> opens and closes, and every
+          // entry is a plain link, with zero script required for the dropdown
+          // itself to function — the closing script below is polish, not a
+          // dependency.
           availableLocales.length > 1 && (
-            <nav class="lang-switch" aria-label="Language">
-              {availableLocales.map((l) => (
-                <a
-                  href={getRelativeLocaleUrl(l, PAGE_PATH[page])}
-                  aria-current={l === locale ? 'page' : undefined}
-                  lang={l}
-                >
-                  {l.toUpperCase()}
-                </a>
-              ))}
-            </nav>
+            <details class="lang-switch">
+              <summary aria-label="Language">
+                <span class="mono">{locale.toUpperCase()}</span>
+              </summary>
+              <ul>
+                {
+                  availableLocales.map((l) => (
+                    <li>
+                      <a
+                        href={getRelativeLocaleUrl(l, PAGE_PATH[page])}
+                        aria-current={l === locale ? 'page' : undefined}
+                        lang={l}
+                      >
+                        <span class="code mono">{l.toUpperCase()}</span>
+                        <span class="name">{LOCALE_NAME[l]}</span>
+                      </a>
+                    </li>
+                  ))
+                }
+              </ul>
+            </details>
           )
         }
       </div>
@@ -238,15 +255,91 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
         color: var(--bone);
       }
       .lang-switch {
-        gap: clamp(8px, 1.5vw, 14px) !important;
+        position: relative;
+        margin-inline-start: clamp(12px, 2.5vw, 26px);
         padding-inline-start: clamp(12px, 2.5vw, 26px);
         border-inline-start: 1px solid var(--edge);
       }
-      .lang-switch a {
-        color: var(--dim) !important;
+      .lang-switch summary {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        list-style: none;
+        cursor: pointer;
+        color: var(--dim);
+        font-size: 0.66rem;
+        letter-spacing: 0.1em;
+        padding: 5px 9px;
+        border: 1px solid transparent;
+        border-radius: 2px;
       }
-      .lang-switch a[aria-current='page'] {
-        color: var(--brass) !important;
+      /* Chrome/Safari draw their own disclosure triangle; replaced with the chevron below. */
+      .lang-switch summary::-webkit-details-marker {
+        display: none;
+      }
+      .lang-switch summary::after {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-inline-end: 1px solid currentColor;
+        border-block-end: 1px solid currentColor;
+        transform: rotate(45deg);
+        margin-block-start: -3px;
+        transition: transform 0.15s ease;
+      }
+      .lang-switch summary:hover {
+        color: var(--bone);
+      }
+      .lang-switch[open] summary {
+        color: var(--bone);
+        border-color: var(--edge);
+      }
+      .lang-switch[open] summary::after {
+        transform: rotate(225deg);
+        margin-block-start: 3px;
+      }
+      .lang-switch ul {
+        position: absolute;
+        top: calc(100% + 6px);
+        inset-inline-end: 0;
+        z-index: 20;
+        margin: 0;
+        padding: 4px;
+        list-style: none;
+        min-width: 11rem;
+        max-height: 60vh;
+        overflow-y: auto;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+      }
+      .lang-switch ul a {
+        display: flex;
+        align-items: baseline;
+        gap: 9px;
+        padding: 7px 9px;
+        border-radius: 2px;
+        text-decoration: none;
+        color: var(--mist);
+        font-size: 0.82rem;
+      }
+      .lang-switch ul a:hover {
+        background: var(--dusk);
+        color: var(--bone);
+      }
+      .lang-switch ul a[aria-current='page'] {
+        color: var(--brass);
+      }
+      .lang-switch .code {
+        min-width: 1.8em;
+        font-size: 0.62rem;
+        letter-spacing: 0.06em;
+        color: var(--dim);
+      }
+      .lang-switch ul a:hover .code,
+      .lang-switch ul a[aria-current='page'] .code {
+        color: inherit;
       }
 
       .page {
@@ -291,5 +384,26 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
         flex-direction: column;
       }
     </style>
+
+    <script>
+      // Pure polish: the dropdown fully works without this — every entry is a
+      // real link, and <details> opens/closes natively via click or keyboard.
+      // This just closes it on an outside click or Escape, which native
+      // <details> does not do on its own.
+      const switcher = document.querySelector<HTMLDetailsElement>('.lang-switch');
+      if (switcher) {
+        document.addEventListener('click', (event) => {
+          if (switcher.open && !switcher.contains(event.target as Node)) {
+            switcher.removeAttribute('open');
+          }
+        });
+        switcher.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && switcher.open) {
+            switcher.removeAttribute('open');
+            switcher.querySelector('summary')?.focus();
+          }
+        });
+      }
+    </script>
   </body>
 </html>

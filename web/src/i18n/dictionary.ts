@@ -33,6 +33,26 @@ export type Locale = (typeof LOCALES)[number];
 /** The only script in this set that reads right-to-left. */
 export const RTL_LOCALES: ReadonlySet<Locale> = new Set(['ar']);
 
+/**
+ * Each language's own name for itself, always rendered in its own script
+ * regardless of the current page's locale — standard practice for a language
+ * switcher, and how every major site's picker works. Not translated content:
+ * "Français" reads as "Français" on the English page too.
+ */
+export const LOCALE_NAME: Record<Locale, string> = {
+  en: 'English',
+  fr: 'Français',
+  ar: 'العربية',
+  es: 'Español',
+  de: 'Deutsch',
+  ko: '한국어',
+  zh: '中文',
+  ja: '日本語',
+  ru: 'Русский',
+  it: 'Italiano',
+  pt: 'Português',
+};
+
 export type NavKey = 'whatThisIs' | 'faq' | 'directive' | 'privacy' | 'press';
 
 export interface Dictionary {

@@ -249,6 +249,10 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
         text-transform: uppercase;
         color: var(--slate);
         text-decoration: none;
+        /* Padding, not just line-height, is what gives a touch target real
+           height — text alone here is under 25px tall, well short of the
+           ~44px guideline. The gap between links is untouched by this. */
+        padding-block: 9px;
       }
       .site-head nav a:hover,
       .site-head nav a[aria-current='page'] {
@@ -269,7 +273,7 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
         color: var(--dim);
         font-size: 0.66rem;
         letter-spacing: 0.1em;
-        padding: 5px 9px;
+        padding: 9px 12px;
         border: 1px solid transparent;
         border-radius: 2px;
       }
@@ -318,7 +322,7 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
         display: flex;
         align-items: baseline;
         gap: 9px;
-        padding: 7px 9px;
+        padding: 10px 12px;
         border-radius: 2px;
         text-decoration: none;
         color: var(--mist);
@@ -340,6 +344,42 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
       .lang-switch ul a:hover .code,
       .lang-switch ul a[aria-current='page'] .code {
         color: inherit;
+      }
+
+      /*
+       * Below this width, `.head-inner`'s own flex-wrap can push the switcher
+       * onto its own row, and that row is not guaranteed to sit at the header's
+       * trailing edge — space-between puts a lone wrapped item at the LEADING
+       * edge instead. The desktop panel is positioned via `inset-inline-end: 0`
+       * relative to the trigger, so in that situation it would try to open
+       * further off the leading edge — off-screen, with no way back on via
+       * CSS alone. Rather than chase exact wrap breakpoints, the panel drops
+       * out of absolute positioning entirely here and becomes a normal
+       * full-width block in the document flow, directly under its trigger.
+       * That makes off-screen impossible by construction, not by coincidence,
+       * and larger tap targets are a welcome side effect on a touch device.
+       */
+      @media (max-width: 40rem) {
+        .lang-switch {
+          width: 100%;
+          margin-inline-start: 0;
+          padding-inline-start: 0;
+          border-inline-start: none;
+          border-top: 1px solid var(--edge);
+          margin-top: 6px;
+          padding-top: 6px;
+        }
+        .lang-switch summary {
+          justify-content: space-between;
+        }
+        .lang-switch ul {
+          position: static;
+          width: 100%;
+          min-width: 0;
+          margin-top: 6px;
+          max-height: none;
+          box-shadow: none;
+        }
       }
 
       .page {
@@ -373,6 +413,7 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
         text-transform: uppercase;
         color: var(--dim);
         text-decoration: none;
+        padding-block: 6px;
       }
       .site-foot nav a:hover {
         color: var(--slate);

@@ -37,8 +37,18 @@ const dict = getDictionary(locale);
 const isRtl = RTL_LOCALES.has(locale);
 const availableLocales = PAGE_LOCALES[page];
 
-const canonical = new URL(Astro.url.pathname, SITE_ORIGIN).href;
-const here = Astro.url.pathname.replace(/\/$/, '') || '/';
+/**
+ * NOT derived from `Astro.url.pathname` — under `output: 'static'` with
+ * `build.format: 'file'`, Astro resolves that to the emitted FILENAME during
+ * the build (e.g. `/what-this-is.html`), not the clean served URL. This is
+ * the same trusted computation the hreflang tags below already use for this
+ * exact page/locale, so canonical and hreflang can never disagree with each
+ * other, and neither can ever point at a `.html` URL nothing internally
+ * links to.
+ */
+const canonicalPath = getRelativeLocaleUrl(locale, PAGE_PATH[page]);
+const canonical = new URL(canonicalPath, SITE_ORIGIN).href;
+const here = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
 
 const NAV_ITEMS: { key: NavKey; page: PageKey }[] = [
   { key: 'whatThisIs', page: 'whatThisIs' },
@@ -100,6 +110,7 @@ const localeSansStack = LOCALE_SANS_STACK[locale];
     <meta name="theme-color" content="#0A0D18" />
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

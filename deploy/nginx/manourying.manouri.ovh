@@ -91,6 +91,32 @@ server {
         log_not_found off;
     }
 
+    # `build.format: 'file'` puts /faq.html on disk, and it is directly
+    # reachable at that literal path — try_files below serves it for the clean
+    # /faq request too, so without this, /faq and /faq.html are two separately
+    # indexable URLs for identical content, and the page's own canonical tag
+    # (necessarily computed for the clean URL, which is what internal links
+    # and hreflang use) ends up disagreeing with the address the crawler
+    # actually fetched. Redirect the raw filename to the clean form instead of
+    # just tolerating it.
+    #
+    # `internal` on /404.html must come first: without it, this rule's own
+    # regex below would 301 a direct request for /404.html to /404, and
+    # error_page's internal redirect back to /404.html would be reachable
+    # from a normal request either way — the error page itself has no reason
+    # to be indexable under EITHER URL, so a direct hit just 404s.
+    location = /404.html {
+        internal;
+    }
+    # index.astro emits /index.html, but its clean URL is "/" — not "/index",
+    # which is what the generic rule below would produce.
+    location = /index.html {
+        return 301 /$is_args$args;
+    }
+    location ~ ^(?<clean>.+)\.html$ {
+        return 301 $clean$is_args$args;
+    }
+
     # Built with `build.format: 'file'`, so /faq lives at /faq.html on disk.
     # try_files gives clean URLs without a redirect round trip.
     location / {

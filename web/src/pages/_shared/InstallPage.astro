@@ -1,0 +1,146 @@
+---
+import Base from '../../layouts/Base.astro';
+import { BUILDS } from '../../content/builds';
+import { CONTACT_EMAIL } from '../../config';
+import { getDictionary, type Locale } from '../../i18n';
+
+/**
+ * The install page — a permanent URL the app and every invite message can
+ * point at, so an expiring build link never breaks an invite sent months
+ * earlier. Stable across locales too: /install stays the canonical English
+ * URL the app's INSTALL_URL points at; /fr/install, /ar/install are
+ * additions, not replacements.
+ */
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale).install;
+---
+
+<Base title={t.title} description={t.description} page="install" locale={locale}>
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="serif">{t.h1}</h1>
+
+  <p class="lede">{t.lede}</p>
+
+  <div class="builds">
+    {
+      BUILDS.map((build) => (
+        <div class={`build ${build.available ? '' : 'unavailable'}`}>
+          <div class="row">
+            <h2>{t.platformLabel[build.platform]}</h2>
+            {build.available ? (
+              <span class="mono meta">
+                v{build.version} · {build.built}
+              </span>
+            ) : (
+              <span class="mono meta">{t.notYet}</span>
+            )}
+          </div>
+          {build.note && <p class="note">{build.note}</p>}
+          {build.available && (
+            <a class="btn" href={build.url} rel="noopener">
+              {t.installFor} {t.platformLabel[build.platform]}
+            </a>
+          )}
+        </div>
+      ))
+    }
+  </div>
+
+  <section>
+    <h2 class="sub">{t.haveCodeHeading}</h2>
+    <p>{t.haveCodeBody}</p>
+  </section>
+
+  <section>
+    <h2 class="sub">{t.noCodeHeading}</h2>
+    <p>{t.noCodeBody}</p>
+  </section>
+
+  <hr class="rule" />
+  <p class="fine">
+    {t.brokenBefore} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+  </p>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    line-height: 1.05;
+    margin-block: 14px 20px;
+  }
+  .builds {
+    display: grid;
+    gap: 14px;
+    margin-block: clamp(26px, 4vw, 36px);
+  }
+  .build {
+    border: 1px solid var(--edge);
+    background: var(--dusk);
+    border-radius: 3px;
+    padding: clamp(16px, 3vw, 22px);
+  }
+  .build.unavailable {
+    opacity: 0.62;
+  }
+  .row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .build h2 {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.15rem;
+    color: var(--bone);
+  }
+  .meta {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--slate);
+  }
+  .note {
+    color: var(--slate);
+    font-size: 0.86rem;
+    line-height: 1.65;
+    margin-top: 10px;
+    max-width: var(--measure);
+  }
+  .btn {
+    display: inline-block;
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--brass);
+    padding: 12px 20px;
+    border-radius: 2px;
+  }
+  section {
+    margin-top: clamp(24px, 4vw, 32px);
+  }
+  .sub {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.02rem;
+    color: var(--bone);
+    margin-bottom: 8px;
+  }
+  section p {
+    color: var(--mist);
+    max-width: var(--measure);
+    line-height: 1.72;
+  }
+  .fine {
+    margin-top: 18px;
+  }
+</style>

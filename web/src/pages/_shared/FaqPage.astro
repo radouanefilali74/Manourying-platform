@@ -1,0 +1,59 @@
+---
+import Base from '../../layouts/Base.astro';
+import { CONTACT_EMAIL, TONE_HZ } from '../../config';
+import { getDictionary, type Locale } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale).faq;
+
+/** The only two config values embedded inline in FAQ prose — see dictionary.ts. */
+const fill = (s: string) =>
+  s.replace('{{TONE_HZ}}', String(TONE_HZ)).replace('{{CONTACT_EMAIL}}', CONTACT_EMAIL);
+---
+
+<Base title={t.title} description={t.description} page="faq" locale={locale}>
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="serif">{t.h1}</h1>
+
+  <dl>
+    {
+      t.items.map((item) => (
+        <div class="item">
+          <dt>{fill(item.q)}</dt>
+          <dd>{fill(item.a)}</dd>
+        </div>
+      ))
+    }
+  </dl>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    line-height: 1.05;
+    margin-block: 14px 34px;
+  }
+  dl {
+    margin: 0;
+  }
+  .item {
+    border-top: 1px solid var(--edge);
+    padding-block: 22px;
+  }
+  dt {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.02rem;
+    color: var(--bone);
+  }
+  dd {
+    margin: 9px 0 0;
+    color: var(--mist);
+    max-width: var(--measure);
+    line-height: 1.72;
+  }
+</style>

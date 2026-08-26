@@ -1,0 +1,146 @@
+---
+import Base from '../../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../../config';
+import { getDictionary, type Locale } from '../../i18n';
+
+/**
+ * The privacy page.
+ *
+ * The spec is blunt about why this matters: ambient audio of a public square
+ * captures bystanders who never consented, and that position will have to be
+ * justified in writing in the EU. Everything here describes what the software
+ * actually does today. Where a feature is not built yet it says so rather
+ * than describing an intention as though it were a safeguard already in place.
+ *
+ * Non-English versions carry an EXTRA notice beyond the site-wide translation
+ * disclaimer — see `legalReviewNotice` in the dictionary — because this page
+ * carries GDPR-facing claims and the English text at /privacy is the version
+ * of record if the two ever disagree.
+ */
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale).privacy;
+
+const UPDATED = '24 August 2026';
+---
+
+<Base title={t.title} description={t.description} page="privacy" locale={locale}>
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="serif">{t.h1}</h1>
+  <p class="lede">{t.lede}</p>
+
+  {
+    t.legalReviewNotice && (
+      <p class="notice legal">{t.legalReviewNotice}</p>
+    )
+  }
+
+  <section>
+    <h2>{t.seatHeading}</h2>
+    <p>{t.seatBody}</p>
+  </section>
+
+  <section>
+    <h2>{t.storesHeading}</h2>
+    <ul>
+      {t.storesItems.map((item) => <li>{item}</li>)}
+    </ul>
+    <p>{t.storesFooter}</p>
+  </section>
+
+  <section>
+    <h2>{t.neverHeading}</h2>
+    <ul>
+      {t.neverItems.map((item) => <li>{item}</li>)}
+    </ul>
+  </section>
+
+  <section>
+    <h2>{t.micHeading}</h2>
+    <p>
+      <strong>{t.micIntro}</strong>
+    </p>
+    <ul>
+      {t.micItems.map((item) => <li>{item}</li>)}
+    </ul>
+  </section>
+
+  <section>
+    <h2>{t.bystanderHeading}</h2>
+    <p>{t.bystanderP1}</p>
+    <p>{t.bystanderP2}</p>
+    <p>
+      {t.bystanderP3Before} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> {t.bystanderP3After}
+    </p>
+  </section>
+
+  <section>
+    <h2>{t.siteHeading}</h2>
+    <p>{t.siteBody}</p>
+  </section>
+
+  <section>
+    <h2>{t.rightsHeading}</h2>
+    <p>
+      {t.rightsBefore} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>{t.rightsAfter}
+    </p>
+  </section>
+
+  <hr class="rule" />
+  <p class="fine">
+    {t.lastUpdatedPrefix} {UPDATED}{t.lastUpdatedSuffix}
+  </p>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(1.9rem, 5.5vw, 2.8rem);
+    line-height: 1.08;
+    margin-block: 14px 20px;
+  }
+  .notice.legal {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.7;
+    max-width: var(--measure);
+  }
+  section {
+    margin-top: clamp(26px, 4vw, 38px);
+  }
+  h2 {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: var(--bone);
+    margin-bottom: 9px;
+  }
+  p,
+  li {
+    color: var(--mist);
+    max-width: var(--measure);
+    line-height: 1.72;
+  }
+  p + p {
+    margin-top: 0.9em;
+  }
+  ul {
+    padding-inline-start: 1.1rem;
+    margin-top: 0.5em;
+  }
+  li + li {
+    margin-top: 0.45em;
+  }
+  strong {
+    color: var(--bone);
+    font-weight: 500;
+  }
+  .fine {
+    margin-top: 20px;
+  }
+</style>

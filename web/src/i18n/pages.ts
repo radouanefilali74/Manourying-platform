@@ -35,13 +35,13 @@ export const PAGE_PATH: Record<PageKey, string> = {
  * locale — nowhere else, or the switcher and the nav can drift apart.
  */
 export const PAGE_LOCALES: Record<PageKey, readonly Locale[]> = {
-  index: ['en'],
+  index: ['en', 'fr', 'ar'],
   whatThisIs: ['en', 'fr', 'ar'],
-  faq: ['en'],
-  privacy: ['en'],
-  press: ['en'],
-  install: ['en'],
-  directive: ['en'],
-  gate: ['en'],
-  notFound: ['en'],
+  faq: ['en', 'fr', 'ar'],
+  privacy: ['en', 'fr', 'ar'],
+  press: ['en', 'fr', 'ar'],
+  install: ['en', 'fr', 'ar'],
+  directive: ['en', 'fr', 'ar'],
+  gate: ['en', 'fr', 'ar'],
+  notFound: ['en', 'fr', 'ar'],
 };

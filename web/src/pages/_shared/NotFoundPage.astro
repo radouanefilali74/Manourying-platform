@@ -1,0 +1,46 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getDictionary, type Locale } from '../../i18n';
+
+/**
+ * NOTE ON WHAT THIS ACTUALLY REACHES: nginx's `error_page 404 /404.html`
+ * (deploy/nginx/manourying.manouri.ovh) is unconditional — a genuine 404 under
+ * /fr/ or /ar/ still serves THIS page's English build, not the localized one,
+ * because the directive does not branch on the request's locale prefix.
+ * Teaching it to would be an nginx change, which this task deliberately
+ * avoided everywhere else. The localized routes below exist for consistency
+ * with every other page and in case something links to them directly, not
+ * because nginx's error handling is locale-aware yet.
+ */
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale).notFound;
+---
+
+<Base title={t.title} description={t.description} page="notFound" locale={locale}>
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="serif">{t.h1}</h1>
+  <p class="lede">{t.lede}</p>
+  <ul>
+    <li><a href="/what-this-is">{t.linkWhatThisIs}</a></li>
+    <li><a href="/faq">{t.linkFaq}</a></li>
+    <li><a href="/install">{t.linkInstall}</a></li>
+  </ul>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    line-height: 1.05;
+    margin-block: 14px 20px;
+  }
+  ul {
+    padding-inline-start: 1.1rem;
+    margin-top: 1em;
+    color: var(--mist);
+    line-height: 2;
+  }
+</style>

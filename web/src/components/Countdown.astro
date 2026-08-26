@@ -1,5 +1,6 @@
 ---
 import { MOMENT_UTC } from '../config';
+import type { Dictionary, Locale } from '../i18n';
 
 /**
  * The countdown on the landing page.
@@ -13,13 +14,34 @@ import { MOMENT_UTC } from '../config';
  * is the authoritative fact.
  *
  * Renders a readable static state with JavaScript disabled, then enhances.
+ *
+ * The date/time formatting locale now follows the page's own locale rather
+ * than a hardcoded 'en-GB' — it used to be fixed on purpose, because the
+ * surrounding sentence was always English and "15:05 on 23 septembre" reads
+ * as a bug even when each half is correct. Now that the sentence isn't always
+ * English, matching it is what keeps that same reasoning true.
  */
+interface Props {
+  locale: Locale;
+  t: Dictionary['index']['countdown'];
+}
 
+const { locale, t } = Astro.props;
 const moment = new Date(MOMENT_UTC);
 const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
 ---
 
-<div class="countdown" data-moment={MOMENT_UTC}>
+<div
+  class="countdown"
+  data-moment={MOMENT_UTC}
+  data-locale={locale}
+  data-where-prefix={t.wherePrefix}
+  data-where-midnight={t.whereMidnight}
+  data-where-early={t.whereEarlyMorning}
+  data-where-period={t.wherePeriod}
+  data-passed={t.passed}
+  data-days-until={t.daysUntil}
+>
   <div class="units" aria-hidden="true">
     <span class="unit"><b data-part="d">—</b><i>d</i></span>
     <span class="unit"><b data-part="h">—</b><i>h</i></span>
@@ -30,7 +52,7 @@ const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC')
   <p class="sr-live" data-live aria-live="polite"></p>
 
   <p class="instant mono">{readable}</p>
-  <p class="local fine" data-local>The September equinox.</p>
+  <p class="local fine" data-local>{t.fallback}</p>
 </div>
 
 <style>
@@ -58,7 +80,7 @@ const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC')
     font-style: normal;
     font-size: 0.9rem;
     color: var(--slate);
-    margin-left: 3px;
+    margin-inline-start: 3px;
     letter-spacing: 0.1em;
   }
   .instant {
@@ -83,6 +105,7 @@ const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC')
   const root = document.querySelector<HTMLElement>('.countdown');
   if (root) {
     const target = Date.parse(root.dataset.moment!);
+    const locale = root.dataset.locale!;
     const parts = {
       d: root.querySelector<HTMLElement>('[data-part="d"]')!,
       h: root.querySelector<HTMLElement>('[data-part="h"]')!,
@@ -92,27 +115,36 @@ const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC')
     const live = root.querySelector<HTMLElement>('[data-live]')!;
     const local = root.querySelector<HTMLElement>('[data-local]')!;
 
-    // What the instant reads as on this visitor's own clock. Non-obvious and
-    // the single most useful thing the page can tell somebody: it is 09:05 in
-    // New York and 00:05 the next day in Sydney, and people need to know they
-    // will be doing this in the middle of the night so they can plan for it.
+    // What the instant reads as on this visitor's own clock — formatted in the
+    // PAGE's locale (not always English any more), so the sentence and the
+    // values it contains agree with each other. The values themselves still
+    // come from the visitor's own timezone, which is the part that has to
+    // stay personal.
     try {
       const d = new Date(target);
-      // Formatted in English rather than the browser's locale: the sentence
-      // around it is English, and "15:05 on 23 septembre" reads as a bug even
-      // though each half is correct. The *values* still come from the
-      // visitor's own timezone, which is the part that has to be personal.
-      const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+      // numberingSystem: 'latn' is forced everywhere, not just for Arabic: this
+      // is a technical timestamp next to a countdown that always renders in
+      // Western digits, and Arabic locale formatting otherwise defaults to
+      // Arabic-Indic numerals (٠١٢٣…) — a mismatch worth avoiding on purpose.
+      const time = d.toLocaleTimeString(locale, {
+        hour: '2-digit',
+        minute: '2-digit',
+        numberingSystem: 'latn',
+      });
+      const date = d.toLocaleDateString(locale, {
+        day: 'numeric',
+        month: 'long',
+        numberingSystem: 'latn',
+      });
       const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const hour = d.getHours();
       const note =
         hour >= 22 || hour < 5
-          ? ' — the middle of your night.'
+          ? ` ${root.dataset.whereMidnight}`
           : hour < 9
-            ? ' — early morning where you are.'
-            : '.';
-      local.textContent = `Where you are, that is ${time} on ${date}${note}`;
+            ? ` ${root.dataset.whereEarly}`
+            : root.dataset.wherePeriod;
+      local.textContent = `${root.dataset.wherePrefix} ${time} ${date}${note}`;
       local.setAttribute('title', zone);
     } catch {
       /* leave the static fallback in place */
@@ -126,7 +158,7 @@ const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC')
       if (left <= 0) {
         parts.d.textContent = parts.h.textContent = '00';
         parts.m.textContent = parts.s.textContent = '00';
-        live.textContent = 'The moment has passed.';
+        live.textContent = root.dataset.passed!;
         return;
       }
       const s = left / 1000;
@@ -140,7 +172,7 @@ const readable = moment.toISOString().replace('T', ' ').replace('.000Z', ' UTC')
       const days = Math.floor(s / 86400);
       if (days !== lastAnnounced) {
         lastAnnounced = days;
-        live.textContent = `${days} days until the moment.`;
+        live.textContent = root.dataset.daysUntil!.replace('{{DAYS}}', String(days));
       }
       requestAnimationFrame(tick);
     };

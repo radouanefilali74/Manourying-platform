@@ -1,0 +1,180 @@
+---
+import Base from '../../layouts/Base.astro';
+import { INSTALL_PATH } from '../../config';
+import { getDictionary, type Locale } from '../../i18n';
+
+/**
+ * Where an invite link lands when the app is not installed.
+ *
+ * The code is read from the query string in the browser rather than at build
+ * time, because this is a static page serving every possible code — so this
+ * page needs a real per-locale route (not just query-string content) for the
+ * chrome around the code to be translated, while the validation regex and the
+ * clipboard logic stay identical across every locale.
+ */
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale).gate;
+---
+
+<Base title={t.title} description={t.description} page="gate" locale={locale}>
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="serif">{t.h1}</h1>
+
+  <div class="code-card" data-code-card hidden>
+    <p class="eyebrow">{t.codeEyebrow}</p>
+    <p class="code mono" data-code>——————</p>
+    <button class="copy" type="button" data-copy data-copied-label={t.copiedLabel}>
+      {t.copyButton}
+    </button>
+    <p class="fine">{t.codeFine}</p>
+  </div>
+
+  <p class="lede" data-no-code>{t.noCodeLede}</p>
+
+  <section>
+    <h2>{t.invitedHeading}</h2>
+    <p>{t.invitedBody}</p>
+    <p>
+      <a href="/what-this-is">{t.invitedLink}</a> {t.invitedLinkAfter}
+    </p>
+  </section>
+
+  <section>
+    <h2>{t.nextHeading}</h2>
+    <ol>
+      {t.nextSteps.map((step) => <li>{step}</li>)}
+    </ol>
+    <a class="btn" href={INSTALL_PATH}>{t.ctaGetApp}</a>
+  </section>
+
+  <hr class="rule" />
+  <p class="fine">{t.footerFine}</p>
+</Base>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const raw = (params.get('code') ?? '').trim().toUpperCase();
+
+  // Codes are six characters over an unambiguous alphabet (no 0/O, no 1/I/L).
+  // Validating the shape here stops the page rendering whatever somebody put
+  // in the query string as though it were a real invite. Not locale-dependent
+  // — the alphabet is the same code space regardless of which page the link
+  // opened on.
+  const valid = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6,12}$/.test(raw);
+
+  if (valid) {
+    const card = document.querySelector<HTMLElement>('[data-code-card]');
+    const slot = document.querySelector<HTMLElement>('[data-code]');
+    const intro = document.querySelector<HTMLElement>('[data-no-code]');
+    if (card && slot) {
+      slot.textContent = raw;
+      card.hidden = false;
+      intro?.remove();
+    }
+
+    const button = document.querySelector<HTMLButtonElement>('[data-copy]');
+    button?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(raw);
+        const original = button.textContent;
+        button.textContent = button.dataset.copiedLabel ?? original;
+        setTimeout(() => (button.textContent = original), 1600);
+      } catch {
+        // Clipboard blocked; the code is selectable on the page.
+      }
+    });
+  }
+</script>
+
+<style>
+  h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    line-height: 1.05;
+    margin-block: 14px 22px;
+  }
+  .code-card {
+    border: 1px solid var(--brass);
+    background: var(--dusk);
+    border-radius: 3px;
+    padding: clamp(18px, 3vw, 26px);
+    margin-bottom: 26px;
+  }
+  .code {
+    font-size: clamp(1.8rem, 7vw, 2.6rem);
+    letter-spacing: 0.3em;
+    color: var(--brass);
+    margin-top: 10px;
+    user-select: all;
+    /* The code itself is an opaque alphanumeric string, not prose — it stays
+       left-to-right and left-aligned on an RTL page too, matching how the
+       directive page treats its own verification payloads. */
+    direction: ltr;
+    text-align: left;
+  }
+  .copy {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--slate);
+    background: none;
+    border: 1px solid var(--edge);
+    border-radius: 2px;
+    padding: 9px 14px;
+    cursor: pointer;
+  }
+  .copy:hover {
+    color: var(--bone);
+    border-color: var(--slate);
+  }
+  .code-card .fine {
+    margin-top: 12px;
+  }
+  section {
+    margin-top: clamp(24px, 4vw, 34px);
+  }
+  h2 {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: var(--bone);
+    margin-bottom: 9px;
+  }
+  p,
+  li {
+    color: var(--mist);
+    max-width: var(--measure);
+    line-height: 1.72;
+  }
+  p + p {
+    margin-top: 0.9em;
+  }
+  ol {
+    padding-inline-start: 1.2rem;
+    margin-top: 0.4em;
+  }
+  li + li {
+    margin-top: 0.4em;
+  }
+  .btn {
+    display: inline-block;
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--brass);
+    padding: 12px 20px;
+    border-radius: 2px;
+  }
+  .fine {
+    max-width: var(--measure);
+  }
+</style>

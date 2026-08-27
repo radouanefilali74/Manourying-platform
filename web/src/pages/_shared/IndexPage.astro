@@ -89,21 +89,41 @@ const t = getDictionary(locale).index;
   .hero {
     padding-block: clamp(48px, 11vw, 110px) clamp(30px, 6vw, 56px);
     /*
-     * A gradient scrim layered ON TOP of the photo (first in the list = drawn
-     * last = frontmost) rather than an `opacity` on the image itself — that
-     * would fade the text's own background along with it. This guarantees
-     * every existing text colour keeps its designed contrast against --ink
-     * regardless of exactly where the glow in the source photo lands at a
-     * given viewport size, rather than relying on positioning luck.
+     * The shipped asset (web/public/hero/atmosphere.jpg) is pre-cropped to a
+     * band that is evenly bright across its OWN full height — a first attempt
+     * at this used background-position percentages to aim at one bright
+     * region within a much taller source image, which depends on the hero
+     * box's exact rendered aspect ratio to land correctly, and that aspect
+     * ratio isn't reliably knowable across viewports without a real browser
+     * to check. Pre-cropping the source removes that dependency entirely:
+     * there is no dead zone left for `cover` to land on by accident, so a
+     * plain "center" here is robust rather than lucky.
+     *
+     * The scrim is still asymmetric left-to-right, not a flat fade, because
+     * the hero text is left-aligned and a column sample of the source
+     * confirmed its own left edge is already the darkest part of the frame.
+     * The opacity values are sized to an actual contrast check, not eyeballed:
+     * the large serif h1 clears WCAG's large-text threshold against the raw
+     * image already, but the body-sized lede (--mist, lower contrast to start
+     * with) needed real help to reach 4.5:1 — hence ~60% ink under the text
+     * column specifically, easing off toward the right where nothing is
+     * drawn, so the glow still reads clearly there.
      */
     background-image: linear-gradient(
         180deg,
-        color-mix(in srgb, var(--ink) 45%, transparent) 0%,
-        color-mix(in srgb, var(--ink) 82%, transparent) 55%,
+        transparent 0%,
+        transparent 70%,
         var(--ink) 100%
+      ),
+      linear-gradient(
+        100deg,
+        color-mix(in srgb, var(--ink) 62%, transparent) 0%,
+        color-mix(in srgb, var(--ink) 45%, transparent) 32%,
+        color-mix(in srgb, var(--ink) 12%, transparent) 62%,
+        color-mix(in srgb, var(--ink) 32%, transparent) 100%
       ), url('/hero/atmosphere.jpg');
     background-size: cover;
-    background-position: center top;
+    background-position: center;
     background-repeat: no-repeat;
   }
   h1 {

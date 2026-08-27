@@ -88,6 +88,23 @@ const t = getDictionary(locale).index;
 <style>
   .hero {
     padding-block: clamp(48px, 11vw, 110px) clamp(30px, 6vw, 56px);
+    /*
+     * A gradient scrim layered ON TOP of the photo (first in the list = drawn
+     * last = frontmost) rather than an `opacity` on the image itself — that
+     * would fade the text's own background along with it. This guarantees
+     * every existing text colour keeps its designed contrast against --ink
+     * regardless of exactly where the glow in the source photo lands at a
+     * given viewport size, rather than relying on positioning luck.
+     */
+    background-image: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--ink) 45%, transparent) 0%,
+        color-mix(in srgb, var(--ink) 82%, transparent) 55%,
+        var(--ink) 100%
+      ), url('/hero/atmosphere.jpg');
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
   }
   h1 {
     font-size: clamp(2.3rem, 7.5vw, 4.2rem);

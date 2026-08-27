@@ -90,17 +90,18 @@ const t = getDictionary(locale).index;
     padding-block: clamp(48px, 11vw, 110px) clamp(30px, 6vw, 56px);
     /*
      * A dawn limb — the lit edge of a planet seen from outside it — drawn
-     * entirely from the design tokens rather than shipped as an image.
+     * from the design tokens, over a photographic texture (see the last
+     * layer of the stack below).
      *
-     * This replaced a photographic background. An image was the wrong tool
-     * here twice over: sizing it correctly needs the hero's rendered aspect
-     * ratio, which isn't knowable across 11 locales and every viewport, and
+     * The gradients, not the photo, carry the composition. An earlier
+     * version of this hero was a photograph doing the whole job, and that
+     * failed twice over: sizing it needs the hero's rendered aspect ratio,
+     * which isn't knowable across 11 locales and every viewport, and
      * whatever fade ends it has to meet the flat page ground somewhere,
      * which is a seam waiting to happen. Gradients have neither problem —
-     * they're defined in percentages of the box, so the composition scales
-     * with it, and there is no edge to meet anything at. It also costs zero
-     * requests and cannot drift out of the palette, since it literally
-     * reads --brass/--mist/--slate/--ink.
+     * defined in percentages of the box, so the composition scales with it,
+     * and there is no edge to meet anything at. They also cannot drift out
+     * of the palette, since they literally read --brass/--mist/--slate/--ink.
      *
      * Geometry: both glows ride ONE ellipse centred well below and right of
      * the box, so the slice of it crossing the hero reads as a gentle curve
@@ -115,8 +116,12 @@ const t = getDictionary(locale).index;
      * 3:1 for the large serif h1, 4.5:1 for the small --slate eyebrow and
      * the --mist lede. The eyebrow is the binding constraint by some
      * distance: --slate on bare --ink is only 4.70:1 to begin with, so the
-     * scrim has to hold the top-left at essentially pure ink. Measured at
-     * 1600x760 / 1280x700: eyebrow 4.68:1, h1 10.38:1, lede 7.12:1.
+     * scrim has to hold the top-left at essentially pure ink.
+     *
+     * Measured WITH the texture layer composited underneath, since adding
+     * any luminance under the copy eats into margins that are already thin:
+     *   1600x760  eyebrow 4.65:1  h1 9.48:1  lede 6.80:1
+     *   1280x700  eyebrow 4.68:1  h1 9.62:1  lede 6.73:1
      */
     background-color: var(--ink);
     background-image:
@@ -145,16 +150,45 @@ const t = getDictionary(locale).index;
         color-mix(in srgb, var(--mist) 46%, transparent) 100%,
         color-mix(in srgb, var(--slate) 24%, transparent) 105%,
         transparent 123%
-      );
+      ),
+      /*
+       * The photograph, as the BOTTOM layer: a crop of the globe from the
+       * source image containing none of its fabricated content — no UI
+       * panel, no participant roster, no telemetry dashboard, no city
+       * label, no satellite, no face. It is texture, not composition: the
+       * gradients above still carry the shape and the contrast, and
+       * background-color: var(--ink) below still carries the floor, so if
+       * this never loads the hero is unchanged in structure.
+       *
+       * A fade to ink across the left is baked into the asset rather than
+       * left to the scrim. Uniform darkening would have traded visibility
+       * across the whole frame for contrast in one corner; fading only the
+       * side the copy occupies let the visible half stay ~4x brighter at
+       * the SAME measured eyebrow ratio. Its stops are placed against where
+       * the copy lands after cover-scaling, not against the raw asset.
+       */
+      url('/hero/texture.jpg');
+    /*
+     * `cover` is right here, unlike the earlier photographic hero this
+     * replaced: there is no shape to preserve in a texture layer, so the
+     * upscaling that wrecked that one is harmless. Centred, matching the
+     * geometry the contrast above was measured under.
+     */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
   }
 
   /*
    * Arabic puts the copy on the right, which is exactly where the glow
    * lives — so the whole composition mirrors, or the contrast measured
-   * above stops meaning anything. A horizontal mirror of both the gradient
-   * and the text it protects yields identical luminance by construction,
-   * so the numbers above carry over unchanged: angle 100deg becomes 260deg
-   * (360 - 100) and the ellipse's 80% becomes 20%.
+   * above stops meaning anything: angle 100deg becomes 260deg (360 - 100)
+   * and the ellipse's 80% becomes 20%.
+   *
+   * The gradients alone would mirror to identical luminance by
+   * construction, but the texture layer does not — its protective fade is
+   * baked in, so it needs its own mirrored asset and its own measurement.
+   * Measured at 1600x760 RTL: eyebrow 4.68:1, h1 9.65:1, lede 6.50:1.
    *
    * :global() is required because <html dir> is set by Base.astro, outside
    * this component, so Astro's scoping would otherwise never match it.
@@ -183,7 +217,15 @@ const t = getDictionary(locale).index;
         color-mix(in srgb, var(--mist) 46%, transparent) 100%,
         color-mix(in srgb, var(--slate) 24%, transparent) 105%,
         transparent 123%
-      );
+      ),
+      /*
+       * A separate asset, not the same file mirrored: only the protective
+       * fade flips to the right where Arabic puts the copy. Flipping the
+       * image itself would put the Americas east of Asia — a small
+       * falsehood, and avoiding exactly that is the reason this crop was
+       * made in the first place.
+       */
+      url('/hero/texture-rtl.jpg');
   }
 
   /*

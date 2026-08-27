@@ -13,47 +13,20 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { pool } from '../../db/pool.ts';
-import { badRequest, unauthenticated } from '../../lib/errors.ts';
+import { badRequest } from '../../lib/errors.ts';
 import { claimSeat, ALPHABET } from '../../domain/invites.ts';
+import { seatFromBearer, seatView } from '../../domain/seats.ts';
+import { rateLimit } from '../../plugins/rateLimit.ts';
 
 const CODE_PATTERN = new RegExp(`^[${ALPHABET}]{6,12}$`);
-
-/** The app's Seat shape, assembled from the ledger. */
-async function seatView(seatId: number) {
-  const { rows } = await pool.query(
-    `SELECT s.token, s.claimed_at,
-            (SELECT count(*) FROM invites i
-              WHERE i.seat_id = s.id AND i.claimed_at IS NULL AND i.revoked_at IS NULL)
-              AS invites_left,
-            (SELECT count(*) FROM seats c WHERE c.parent_seat_id = s.id) AS lineage
-       FROM seats s WHERE s.id = $1`,
-    [seatId],
-  );
-  const row = rows[0];
-  if (!row) return null;
-  return {
-    token: row.token,
-    invitesLeft: Number(row.invites_left),
-    lineage: Number(row.lineage),
-    claimedAt: new Date(row.claimed_at).toISOString(),
-  };
-}
-
-async function seatFromBearer(authorization: string | undefined) {
-  const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
-  if (!token) throw unauthenticated();
-  const { rows } = await pool.query<{ id: number }>(
-    'SELECT id FROM seats WHERE token = $1 AND revoked_at IS NULL',
-    [token],
-  );
-  if (!rows[0]) throw unauthenticated();
-  return rows[0].id;
-}
 
 export default async function publicSeatRoutes(app: FastifyInstance) {
   app.post(
     '/seats',
     {
+      // The only unauthenticated route that SPENDS something. Without a
+      // ceiling, the 31^6 code space is guessable at network speed.
+      preHandler: [rateLimit('claim', 15, 3600)],
       schema: {
         body: {
           type: 'object',

@@ -21,6 +21,7 @@ import { redisHealthy } from './redis.ts';
 import { AppError } from './lib/errors.ts';
 import sessionPlugin from './plugins/session.ts';
 import { CSRF_HEADER } from './plugins/csrf.ts';
+import { DEVICE_HEADER } from './lib/headers.ts';
 import authRoutes from './routes/admin/auth.ts';
 import counterRoutes from './routes/admin/counters.ts';
 import seatRoutes from './routes/admin/seats.ts';
@@ -53,7 +54,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     origin: env.adminOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-    allowedHeaders: ['content-type', CSRF_HEADER],
+    allowedHeaders: ['content-type', 'authorization', CSRF_HEADER, DEVICE_HEADER],
     maxAge: 600,
   });
 
@@ -114,16 +115,29 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(seatRoutes);
 
   /**
-   * The app-facing routes (/seats, /waitlist, /cells, /counts, /echo/latest)
-   * are built against the same tables, but reaching them requires TWO switches
-   * to flip: PUBLIC_API here, and nginx actually proxying those paths, which it
-   * does not. The app is still on MockService, so anything reachable on those
-   * paths today is abuse surface and nothing else.
+   * The app-facing routes. All of them are implemented against the same tables
+   * the admin panel reads, and all of them are rate limited — but reaching
+   * them still requires TWO switches to flip: PUBLIC_API here, and nginx
+   * actually proxying those paths.
+   *
+   * Registered together rather than individually: a half-mounted app-facing
+   * API is worse than none, because the adapter cannot tell "not built yet"
+   * from "misconfigured".
    */
   if (env.publicApi) {
     app.log.warn('PUBLIC_API is on — the app-facing routes are mounted');
-    const { default: publicSeatRoutes } = await import('./routes/public/seats.ts');
-    await app.register(publicSeatRoutes);
+    const [seats, counts, waitlist, cells, echo] = await Promise.all([
+      import('./routes/public/seats.ts'),
+      import('./routes/public/counts.ts'),
+      import('./routes/public/waitlist.ts'),
+      import('./routes/public/cells.ts'),
+      import('./routes/public/echo.ts'),
+    ]);
+    await app.register(seats.default);
+    await app.register(counts.default);
+    await app.register(waitlist.default);
+    await app.register(cells.default);
+    await app.register(echo.default);
   }
 
   return app;

@@ -99,6 +99,15 @@ const t = getDictionary(locale).index;
      * there is no dead zone left for `cover` to land on by accident, so a
      * plain "center" here is robust rather than lucky.
      *
+     * The fade to var(--ink) at the bottom is baked into the asset itself,
+     * not applied as a CSS gradient layer: a CSS vertical gradient is sized
+     * against the full hero box, not the image's own rendered height under
+     * `background-size: 100% auto`, so on any hero taller than the image's
+     * natural aspect ratio the two never lined up — a visible seam right
+     * where the image actually ends. Baking the fade into the JPEG means the
+     * image simply fades to the same flat color the page already uses
+     * beneath it, correct at any container height by construction.
+     *
      * The scrim is still asymmetric left-to-right, not a flat fade, because
      * the hero text is left-aligned and a column sample of the source
      * confirmed its own left edge is already the darkest part of the frame.
@@ -110,20 +119,33 @@ const t = getDictionary(locale).index;
      * drawn, so the glow still reads clearly there.
      */
     background-image: linear-gradient(
-        180deg,
-        transparent 0%,
-        transparent 70%,
-        var(--ink) 100%
-      ),
-      linear-gradient(
         100deg,
         color-mix(in srgb, var(--ink) 62%, transparent) 0%,
         color-mix(in srgb, var(--ink) 45%, transparent) 32%,
         color-mix(in srgb, var(--ink) 12%, transparent) 62%,
         color-mix(in srgb, var(--ink) 32%, transparent) 100%
       ), url('/hero/atmosphere.jpg');
-    background-size: cover;
-    background-position: center;
+    /*
+     * `cover`, not used here on purpose: the shipped asset is a short, wide
+     * strip (2200x630). `cover` sizes by whichever dimension the CONTAINER
+     * is short on — and a hero this tall (eyebrow + 3-line heading + lede +
+     * countdown + buttons) is short on height relative to a 3.49:1 image, so
+     * `cover` was scaling the image up well past its natural size to fill
+     * that height, zooming into a small slice of it and losing the arc shape
+     * entirely — the "too huge" look.
+     *
+     * `100% auto` sizes by width instead: the image renders at its own
+     * natural proportions, full width, no distortion, and simply runs out
+     * before the bottom of a tall hero. That is fine on purpose — the
+     * gradient above already fades the image to a flat var(--ink) well
+     * before it would end, and `background-repeat: no-repeat` stops the
+     * browser tiling it to fill the leftover height. The result reads as the
+     * texture accenting the opening line, then settling into the same flat
+     * dark the rest of the page already uses under the countdown and
+     * buttons — not a photo stretched to fill a box it was never sized for.
+     */
+    background-size: 100% auto;
+    background-position: center top;
     background-repeat: no-repeat;
   }
   h1 {

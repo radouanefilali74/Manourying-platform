@@ -33,7 +33,16 @@ export default async function publicSeatRoutes(app: FastifyInstance) {
           required: ['code'],
           additionalProperties: false,
           properties: {
-            code: { type: 'string', minLength: 6, maxLength: 12 },
+            /*
+             * Deliberately loose. `minLength: 6` here would be validated by
+             * Fastify BEFORE the handler runs, so a five-character code came
+             * back as "That request was not in the expected shape" — schema
+             * copy, shown to a human by the Gate, in place of the curated
+             * line right below. The bound that matters is the upper one, to
+             * stop an unbounded string reaching the regex; the shape check is
+             * the handler's job precisely because it owns the wording.
+             */
+            code: { type: 'string', minLength: 1, maxLength: 64 },
             zoneOffset: { type: ['integer', 'null'], minimum: -11, maximum: 12 },
           },
         },

@@ -1,0 +1,637 @@
+# The app-facing API.
+#
+# Kept in the repo rather than in a wiki so it is reviewed alongside the
+# handlers it describes. Every example below was captured from a running
+# server, not written by hand.
+#
+# REACHABILITY: these routes are implemented and tested but are NOT served in
+# production today. Two switches must flip: PUBLIC_API=true in server/.env,
+# and the app-facing location blocks in
+# deploy/nginx/api.manourying.manouri.ovh, which are commented out. Until
+# then every path here answers 404 from nginx. /healthz is the exception and
+# is live now.
+openapi: 3.1.0
+
+info:
+  title: Manourying app-facing API
+  version: 1.0.0
+  description: |
+    Everything the mobile app cannot compute on-device. Mirrors the
+    `ManouryingService` interface in the app repo's `src/services/types.ts`;
+    the adapter is `src/services/remote.ts`.
+
+    Nothing here is on the event-day path. The app must work with the network
+    unplugged.
+
+servers:
+  - url: https://api.manourying.manouri.ovh
+
+tags:
+  - name: seats
+  - name: waitlist
+  - name: counts
+  - name: cells
+  - name: echo
+  - name: ops
+
+components:
+  securitySchemes:
+    seatToken:
+      type: http
+      scheme: bearer
+      description: |
+        `Authorization: Bearer <seat.token>` — the opaque token returned by
+        POST /seats. The token IS the credential: there is no separate login,
+        no refresh, and no expiry. A revoked seat stops authenticating
+        immediately. Store it in the platform keystore.
+    deviceKey:
+      type: apiKey
+      in: header
+      name: X-Device-Key
+      description: |
+        Identifies a device that does not yet have a seat, for the waitlist
+        only. A random secret (>= 16 chars; the adapter mints 32 bytes of hex)
+        generated once and kept in secure storage.
+
+        Only its SHA-256 is stored server-side, and `waitlist.device_sha256`
+        is UNIQUE — that uniqueness is the anti-stuffing mechanism, and it is
+        why this header exists even though `joinWaitlist({ zoneOffset })`
+        takes no device argument.
+
+  schemas:
+    Seat:
+      type: object
+      required: [token, invitesLeft, lineage, claimedAt]
+      properties:
+        token:
+          type: string
+          description: Opaque. Never a personal identifier, and not derived from one.
+        invitesLeft:
+          type: integer
+          minimum: 0
+          description: |
+            Unclaimed AND unrevoked invites. Three per seat; they do not
+            replenish. An admin revoking a code lowers this without anybody
+            having claimed anything, so do not read it as "people I brought" —
+            that is `lineage`.
+        lineage:
+          type: integer
+          minimum: 0
+          description: Seats claimed with codes issued to this seat.
+        claimedAt:
+          type: string
+          format: date-time
+      example:
+        token: dsWx1cIhLhpJ3dtCPzTolCLg62h1grHpjUkJFnYQX6A
+        invitesLeft: 3
+        lineage: 0
+        claimedAt: '2026-08-27T15:57:33.744Z'
+
+    Invite:
+      type: object
+      required: [code, claimed, claimedAt]
+      properties:
+        code: { type: string }
+        claimed: { type: boolean }
+        claimedAt:
+          type: [string, 'null']
+          format: date-time
+      example: { code: MRCU4E, claimed: false, claimedAt: null }
+
+    WaitlistEntry:
+      type: object
+      required: [position, zoneOffset, joinedAt]
+      properties:
+        position:
+          type: integer
+          description: |
+            Approximate and monotonic, from a counter rather than a COUNT(*).
+            Permanent: re-joining never moves it, and releasing somebody does
+            not free their number, so gaps in the sequence are expected.
+        zoneOffset: { type: integer, minimum: -11, maximum: 12 }
+        joinedAt: { type: string, format: date-time }
+      example: { position: 18, zoneOffset: 3, joinedAt: '2026-08-27T15:56:17.605Z' }
+
+    Cell:
+      type: object
+      required: [id, name, distance, pledged, kind, zoneOffset]
+      properties:
+        id:
+          type: string
+          description: Opaque public id, not the database key.
+        name: { type: string, minLength: 2, maxLength: 80 }
+        kind: { type: string, maxLength: 40 }
+        zoneOffset: { type: integer, minimum: -11, maximum: 12 }
+        pledged: { type: integer, minimum: 0 }
+        distance:
+          type: string
+          description: |
+            A DISPLAY STRING, never null and never a number. Computed
+            server-side when the request carries lat/lon, otherwise the em
+            dash `—`, which is what the mock also uses. Formatted as `450 m`
+            below a kilometre (rounded to 50 m — a phone fix does not justify
+            more precision) and `1.1 km` above it.
+      example:
+        id: hGVjK43dyFbVNsanmticf1LUSjG2On-4l43xvovmKjQ
+        name: Place des Nations Unies
+        kind: Open square
+        zoneOffset: 1
+        pledged: 1
+        distance: 1.1 km
+
+    EchoRecord:
+      type: object
+      required:
+        [deviationMs, timestamp, location, zoneLabel, cellName, capturedSeconds, uploaded]
+      properties:
+        deviationMs:
+          type: integer
+          description: This seat's deviation from the global mean, in milliseconds.
+        timestamp: { type: string, format: date-time }
+        location: { type: string }
+        zoneLabel:
+          type: string
+          description: 'Rendered form, e.g. `UTC+1`, `UTC−5`, `UTC`.'
+        cellName: { type: [string, 'null'] }
+        capturedSeconds: { type: integer, minimum: 0, maximum: 60 }
+        uploaded:
+          type: boolean
+          description: |
+            Always false today. A CHECK constraint (`echo_audio_deferred`)
+            forces `audio_ref IS NULL`, so audio capture is deliberately not
+            built yet. The field is derived from the column rather than
+            hardcoded, so it starts telling the truth when that lifts.
+
+    EchoSummary:
+      type: object
+      required:
+        [cycleLabel, voices, zonesReached, zonesTotal, spreadSeconds, record, captures]
+      properties:
+        cycleLabel: { type: string }
+        voices: { type: integer }
+        zonesReached: { type: integer }
+        zonesTotal: { type: integer }
+        spreadSeconds:
+          type: number
+          description: Standard deviation of arrival times worldwide, in seconds.
+        record:
+          oneOf:
+            - $ref: '#/components/schemas/EchoRecord'
+            - type: 'null'
+          description: This seat's own card. Null when anonymous or nothing submitted.
+        captures:
+          type: array
+          items:
+            type: object
+            required: [place, localTime, note]
+            properties:
+              place: { type: string }
+              localTime: { type: string }
+              note: { type: string }
+          description: |
+            Published submissions only. A published row has been cleared by a
+            human AND carries granted consent — the schema enforces both.
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              description: Branch on this. Stable for a given condition.
+            message:
+              type: string
+              description: |
+                Written to be shown to a person VERBATIM. The claim path's
+                copy is in the app's own voice precisely so the Gate can
+                display it unchanged. Never branch on this text.
+            requestId: { type: string }
+            detail: { type: object }
+
+  responses:
+    BadRequest:
+      description: Malformed request, or a code failing the shape check.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: invalid_request
+              message: Codes are six characters. Ask whoever sent you here.
+              requestId: req-7
+    Unauthenticated:
+      description: Missing, malformed, unknown or revoked bearer token.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: unauthenticated, message: Sign in to continue., requestId: req-8 }
+    Conflict:
+      description: The action cannot apply to the current state.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: invite_spent
+              message: That code has already been used, or is not a code.
+              requestId: req-6
+    TooMany:
+      description: |
+        Rate limited, per IP per hour. Carries `Retry-After` AND
+        `detail.retryAfterSeconds` — use either.
+      headers:
+        Retry-After: { schema: { type: integer }, description: Seconds. }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: too_many_attempts
+              message: Too many requests. Try again shortly.
+              requestId: req-1
+              detail: { retryAfterSeconds: 3089 }
+
+paths:
+  /counts/seats:
+    get:
+      tags: [counts]
+      security: []
+      summary: The published seat figure
+      description: |
+        Deliberately approximate, cached and monotonic. Never a COUNT(*): at
+        T−0 every client on earth reads this at once, and an exact count is a
+        write-contended read that fails at exactly the moment it must not.
+
+        Clamp it client-side against the last value seen. The server
+        guarantees the figure never decreases, but a cached response arriving
+        after a fresher one still can — and a number that ticks down reads as
+        people leaving.
+      responses:
+        '200':
+          description: OK
+          headers:
+            Cache-Control: { schema: { type: string }, example: 'public, max-age=60' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approximate]
+                properties:
+                  approximate: { type: integer, minimum: 0 }
+              example: { approximate: 44 }
+
+  /counts/zones:
+    get:
+      tags: [counts]
+      security: []
+      summary: Relative participation per UTC offset
+      description: |
+        Keys are UTC offsets as strings, −11 to 12; values are RELATIVE
+        participation figures — raw per-zone counts, matching what the app's
+        `src/domain/zones.ts` means by `weight`. Not normalised: the Field
+        sizes its bands from the ratios, so that decision stays on the client
+        where the band geometry already lives.
+      responses:
+        '200':
+          description: OK
+          headers:
+            Cache-Control: { schema: { type: string }, example: 'public, max-age=60' }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: { type: integer, minimum: 0 }
+              example: { '-1': 0, '0': 0, '1': 40, '2': 0, '3': 0 }
+
+  /seats:
+    post:
+      tags: [seats]
+      security: []
+      summary: Exchange an invite code for a seat
+      description: |
+        The only way a seat is created, and the only unauthenticated route
+        that SPENDS something — hence the rate limit.
+
+        Two simultaneous claims of one code resolve with exactly one winner;
+        the loser gets 409. Codes are normalised server-side (`trim`,
+        `toUpperCase`), so casing and stray whitespace are fine.
+
+        NOTE: the response does NOT contain the three invite codes this mints.
+        Call GET /seats/me/invites for those.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              additionalProperties: false
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                  description: |
+                    Alphabet is Crockford-style — `23456789ABCDEFGHJKMNPQRSTUVWXYZ`
+                    — 31 symbols with no 0/O and no 1/I/L, because these get
+                    read aloud. Seat-to-seat codes are 6 characters; admin
+                    batch codes are 10. Accepted length is 6–12, so do not
+                    hard-limit an input field to 6 or pasted batch codes fail.
+                zoneOffset:
+                  type: [integer, 'null']
+                  minimum: -11
+                  maximum: 12
+                  description: |
+                    WHOLE HOURS ONLY. Sub-hour zones (+5:30, +5:45, +12:45)
+                    cannot be represented and are rejected — decide how you
+                    round before sending. Not returned on any Seat response,
+                    so persist it on the device if a screen needs it.
+            example: { code: MRCU4E, zoneOffset: 1 }
+      responses:
+        '200':
+          description: The new seat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Seat' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: |
+            Spent, revoked, expired, or never existed — ONE message for all
+            four on purpose. Distinguishing them tells a stranger whether a
+            guessed code is real, so do not try to infer which it was.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: invite_spent
+                  message: That code has already been used, or is not a code.
+                  requestId: req-6
+        '429': { $ref: '#/components/responses/TooMany' }
+
+  /seats/me:
+    get:
+      tags: [seats]
+      security: [{ seatToken: [] }]
+      summary: The seat behind the bearer token
+      description: |
+        There is no "no seat" response — an absent or unknown token is 401.
+        The app's `currentSeat()` is typed `Seat | null`, so the adapter MUST
+        map 401 to null; letting it throw errors a fresh install instead of
+        showing the Gate.
+      responses:
+        '200':
+          description: The seat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Seat' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /seats/me/invites:
+    get:
+      tags: [seats]
+      security: [{ seatToken: [] }]
+      summary: Invites issued to this seat
+      description: |
+        A BARE ARRAY, not an object. Spent codes are returned rather than
+        filtered — seeing who you already brought is the reason to spend the
+        next one, and a list that silently shrinks reads as though the app
+        lost something. Revoked codes are excluded. Ordered by issue time.
+      responses:
+        '200':
+          description: Invites
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invite' }
+              example:
+                - { code: MRCU4E, claimed: false, claimedAt: null }
+                - { code: WEKHNR, claimed: true, claimedAt: '2026-08-27T16:02:11.000Z' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /waitlist:
+    post:
+      tags: [waitlist]
+      security: [{ deviceKey: [] }]
+      summary: Join the waitlist without a code
+      description: |
+        Idempotent per device. Re-joining ONLY updates where they said they
+        will be standing — the position they were given is theirs, because a
+        queue number that changes every time the screen opens is worse than
+        no number at all.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [zoneOffset]
+              additionalProperties: false
+              properties:
+                zoneOffset: { type: integer, minimum: -11, maximum: 12 }
+            example: { zoneOffset: 3 }
+      responses:
+        '200':
+          description: The entry, new or existing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WaitlistEntry' }
+        '400':
+          description: Missing or too-short X-Device-Key, or a non-integer offset.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: invalid_request
+                  message: That request was missing its device key.
+                  requestId: req-3
+        '409':
+          description: |
+            This device was already released from the queue and holds an
+            invite. Re-queueing would hand it a second position it cannot use.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: waitlist_released
+                  message: You already have an invite waiting. Enter the code you were sent.
+                  requestId: req-4
+        '429': { $ref: '#/components/responses/TooMany' }
+
+  /waitlist/me:
+    get:
+      tags: [waitlist]
+      security: [{ deviceKey: [] }]
+      summary: The entry held by this device
+      description: |
+        Returns literal `null` with status 200 — NOT 404 — when this device is
+        not on the list. A fresh install asking is the normal case, not an
+        error. Also null once the entry has been released.
+      responses:
+        '200':
+          description: The entry, or null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WaitlistEntry'
+                  - type: 'null'
+        '400':
+          description: Missing or too-short X-Device-Key.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /cells:
+    get:
+      tags: [cells]
+      security: []
+      summary: Visible cells in one zone
+      description: |
+        Nearest first when a fix is supplied, most-pledged first when it is
+        not. Hidden and removed cells never appear — moderation state is not
+        the app's business, and a removed cell reappearing would make
+        moderation pointless. Capped at 200.
+      parameters:
+        - name: zone
+          in: query
+          required: true
+          schema: { type: integer, minimum: -11, maximum: 12 }
+          description: 'Note the name: `zone`, not `zoneOffset`.'
+        - name: lat
+          in: query
+          required: false
+          schema: { type: number, minimum: -90, maximum: 90 }
+          description: Supply with `lon` to get real distances and nearest-first ordering.
+        - name: lon
+          in: query
+          required: false
+          schema: { type: number, minimum: -180, maximum: 180 }
+      responses:
+        '200':
+          description: Cells
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Cell' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    post:
+      tags: [cells]
+      security: [{ seatToken: [] }]
+      summary: Open a cell
+      description: |
+        Requires a seat. An anonymous write here is a spam vector with no
+        handle — the recorded seat is what lets moderation act on the source
+        rather than only on the symptom.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, kind, zoneOffset]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                kind: { type: string, minLength: 1, maxLength: 40 }
+                zoneOffset: { type: integer, minimum: -11, maximum: 12 }
+                lat: { type: [number, 'null'], minimum: -90, maximum: 90 }
+                lon: { type: [number, 'null'], minimum: -180, maximum: 180 }
+            example:
+              name: Place des Nations Unies
+              kind: Open square
+              zoneOffset: 1
+              lat: 33.5945
+              lon: -7.62
+      responses:
+        '200':
+          description: |
+            The created cell. `pledged` starts at 1 and `distance` is `—`,
+            since the response has no origin to measure from.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cell' }
+              example:
+                id: hGVjK43dyFbVNsanmticf1LUSjG2On-4l43xvovmKjQ
+                name: Place des Nations Unies
+                kind: Open square
+                zoneOffset: 1
+                pledged: 1
+                distance: '—'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/TooMany' }
+
+  /echo/latest:
+    get:
+      tags: [echo]
+      security: [{ seatToken: [] }, {}]
+      summary: The latest published cycle, plus this seat's record
+      description: |
+        The bearer token is OPTIONAL. The aggregate belongs to everybody; only
+        the personal record card needs to know who is asking, so a seatless
+        caller gets the same summary with `record: null` rather than a 401.
+
+        Cache-Control is `public, max-age=60` when anonymous and
+        `private, no-store` once a seat is attached, so a shared cache can
+        never hand one person's record to somebody else.
+
+        Before any cycle is published — the situation today — this returns a
+        zeroed summary with `cycleLabel: ""` and empty `captures`, NOT a 404.
+        That state is expected, not an error.
+      responses:
+        '200':
+          description: The summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EchoSummary' }
+              example:
+                cycleLabel: Echo 01 · March equinox 2026
+                voices: 1940112
+                zonesReached: 24
+                zonesTotal: 24
+                spreadSeconds: 0.9
+                record:
+                  deviationMs: -240
+                  timestamp: '2026-08-27T15:57:33.780Z'
+                  location: Casablanca
+                  zoneLabel: UTC+1
+                  cellName: null
+                  capturedSeconds: 6
+                  uploaded: false
+                captures:
+                  - place: Seoul
+                    localTime: 23:06 local
+                    note: A stairwell. Two people. One dog.
+                  - place: Reykjavík
+                    localTime: 14:06 local
+                    note: Wind, mostly. Then not.
+
+  /healthz:
+    get:
+      tags: [ops]
+      security: []
+      summary: Liveness, database and Redis
+      description: The only route reachable in production today.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  db: { type: string, enum: [up, down] }
+                  redis: { type: string, enum: [up, down] }
+                  env: { type: string }
+              example: { ok: true, db: up, redis: up, env: production }

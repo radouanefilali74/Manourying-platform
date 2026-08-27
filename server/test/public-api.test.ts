@@ -305,6 +305,28 @@ describe('app-facing API', { skip }, () => {
       assert.equal(seat.lineage, 0);
     });
 
+    /*
+     * Regression guard. `minLength: 6` on the body schema meant Fastify
+     * rejected a short code before the handler ran, so the Gate displayed
+     * "That request was not in the expected shape" — schema wording, shown
+     * verbatim to a human — instead of the line written for it.
+     */
+    it('answers a short code in the app\'s own voice, not the schema\'s', async () => {
+      const res = await app.inject({ method: 'POST', url: '/seats', payload: { code: 'abc' } });
+      assert.equal(res.statusCode, 400);
+      assert.equal(
+        res.json().error.message,
+        'Codes are six characters. Ask whoever sent you here.',
+      );
+    });
+
+    it('still rejects a code carrying letters outside the alphabet', async () => {
+      // O, I and L are excluded on purpose — they are misread when spoken.
+      const res = await app.inject({ method: 'POST', url: '/seats', payload: { code: 'ABCOIL' } });
+      assert.equal(res.statusCode, 400);
+      assert.match(res.json().error.message, /^Codes are six characters/);
+    });
+
     it('401s an unknown bearer token on /seats/me', async () => {
       const res = await app.inject({
         method: 'GET', url: '/seats/me', headers: { authorization: 'Bearer nope' },

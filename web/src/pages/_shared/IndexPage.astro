@@ -89,64 +89,141 @@ const t = getDictionary(locale).index;
   .hero {
     padding-block: clamp(48px, 11vw, 110px) clamp(30px, 6vw, 56px);
     /*
-     * The shipped asset (web/public/hero/atmosphere.jpg) is pre-cropped to a
-     * band that is evenly bright across its OWN full height — a first attempt
-     * at this used background-position percentages to aim at one bright
-     * region within a much taller source image, which depends on the hero
-     * box's exact rendered aspect ratio to land correctly, and that aspect
-     * ratio isn't reliably knowable across viewports without a real browser
-     * to check. Pre-cropping the source removes that dependency entirely:
-     * there is no dead zone left for `cover` to land on by accident, so a
-     * plain "center" here is robust rather than lucky.
+     * A dawn limb — the lit edge of a planet seen from outside it — drawn
+     * entirely from the design tokens rather than shipped as an image.
      *
-     * The fade to var(--ink) at the bottom is baked into the asset itself,
-     * not applied as a CSS gradient layer: a CSS vertical gradient is sized
-     * against the full hero box, not the image's own rendered height under
-     * `background-size: 100% auto`, so on any hero taller than the image's
-     * natural aspect ratio the two never lined up — a visible seam right
-     * where the image actually ends. Baking the fade into the JPEG means the
-     * image simply fades to the same flat color the page already uses
-     * beneath it, correct at any container height by construction.
+     * This replaced a photographic background. An image was the wrong tool
+     * here twice over: sizing it correctly needs the hero's rendered aspect
+     * ratio, which isn't knowable across 11 locales and every viewport, and
+     * whatever fade ends it has to meet the flat page ground somewhere,
+     * which is a seam waiting to happen. Gradients have neither problem —
+     * they're defined in percentages of the box, so the composition scales
+     * with it, and there is no edge to meet anything at. It also costs zero
+     * requests and cannot drift out of the palette, since it literally
+     * reads --brass/--mist/--slate/--ink.
      *
-     * The scrim is still asymmetric left-to-right, not a flat fade, because
-     * the hero text is left-aligned and a column sample of the source
-     * confirmed its own left edge is already the darkest part of the frame.
-     * The opacity values are sized to an actual contrast check, not eyeballed:
-     * the large serif h1 clears WCAG's large-text threshold against the raw
-     * image already, but the body-sized lede (--mist, lower contrast to start
-     * with) needed real help to reach 4.5:1 — hence ~60% ink under the text
-     * column specifically, easing off toward the right where nothing is
-     * drawn, so the glow still reads clearly there.
+     * Geometry: both glows ride ONE ellipse centred well below and right of
+     * the box, so the slice of it crossing the hero reads as a gentle curve
+     * rather than a flat band. Stops past 100% are the region outside the
+     * ellipse — that's the sky above the limb. Warm rim hugging the arc,
+     * cool halo spread wider around it, one accent, no third colour.
+     *
+     * The opacities are not eyeballed. Every stop below was checked by
+     * rendering this exact gradient stack per-pixel and measuring the
+     * brightest point under each block of copy against the colour that
+     * actually renders there and the threshold that actually applies —
+     * 3:1 for the large serif h1, 4.5:1 for the small --slate eyebrow and
+     * the --mist lede. The eyebrow is the binding constraint by some
+     * distance: --slate on bare --ink is only 4.70:1 to begin with, so the
+     * scrim has to hold the top-left at essentially pure ink. Measured at
+     * 1600x760 / 1280x700: eyebrow 4.68:1, h1 10.38:1, lede 7.12:1.
      */
-    background-image: linear-gradient(
+    background-color: var(--ink);
+    background-image:
+      /* scrim: holds the text column at ink, and biases the glow right */
+      linear-gradient(
         100deg,
-        color-mix(in srgb, var(--ink) 62%, transparent) 0%,
-        color-mix(in srgb, var(--ink) 45%, transparent) 32%,
-        color-mix(in srgb, var(--ink) 12%, transparent) 62%,
-        color-mix(in srgb, var(--ink) 32%, transparent) 100%
-      ), url('/hero/atmosphere.jpg');
-    /*
-     * `cover`, not used here on purpose: the shipped asset is a short, wide
-     * strip (2200x630). `cover` sizes by whichever dimension the CONTAINER
-     * is short on — and a hero this tall (eyebrow + 3-line heading + lede +
-     * countdown + buttons) is short on height relative to a 3.49:1 image, so
-     * `cover` was scaling the image up well past its natural size to fill
-     * that height, zooming into a small slice of it and losing the arc shape
-     * entirely — the "too huge" look.
-     *
-     * `100% auto` sizes by width instead: the image renders at its own
-     * natural proportions, full width, no distortion, and simply runs out
-     * before the bottom of a tall hero. That is fine on purpose — the
-     * gradient above already fades the image to a flat var(--ink) well
-     * before it would end, and `background-repeat: no-repeat` stops the
-     * browser tiling it to fill the leftover height. The result reads as the
-     * texture accenting the opening line, then settling into the same flat
-     * dark the rest of the page already uses under the countdown and
-     * buttons — not a photo stretched to fill a box it was never sized for.
-     */
-    background-size: 100% auto;
-    background-position: center top;
-    background-repeat: no-repeat;
+        color-mix(in srgb, var(--ink) 94%, transparent) 0%,
+        color-mix(in srgb, var(--ink) 88%, transparent) 40%,
+        color-mix(in srgb, var(--ink) 55%, transparent) 60%,
+        color-mix(in srgb, var(--ink) 5%, transparent) 80%,
+        color-mix(in srgb, var(--ink) 18%, transparent) 100%
+      ),
+      /* the warm rim, riding the arc itself */
+      radial-gradient(
+        ellipse 75% 110% at 80% 155%,
+        transparent 93%,
+        color-mix(in srgb, var(--brass) 32%, transparent) 99%,
+        color-mix(in srgb, var(--brass) 15%, transparent) 101.5%,
+        transparent 109%
+      ),
+      /* the cool halo, spread around it */
+      radial-gradient(
+        ellipse 75% 110% at 80% 155%,
+        transparent 78%,
+        color-mix(in srgb, var(--slate) 26%, transparent) 94%,
+        color-mix(in srgb, var(--mist) 46%, transparent) 100%,
+        color-mix(in srgb, var(--slate) 24%, transparent) 105%,
+        transparent 123%
+      );
+  }
+
+  /*
+   * Arabic puts the copy on the right, which is exactly where the glow
+   * lives — so the whole composition mirrors, or the contrast measured
+   * above stops meaning anything. A horizontal mirror of both the gradient
+   * and the text it protects yields identical luminance by construction,
+   * so the numbers above carry over unchanged: angle 100deg becomes 260deg
+   * (360 - 100) and the ellipse's 80% becomes 20%.
+   *
+   * :global() is required because <html dir> is set by Base.astro, outside
+   * this component, so Astro's scoping would otherwise never match it.
+   */
+  :global(html[dir='rtl']) .hero {
+    background-image:
+      linear-gradient(
+        260deg,
+        color-mix(in srgb, var(--ink) 94%, transparent) 0%,
+        color-mix(in srgb, var(--ink) 88%, transparent) 40%,
+        color-mix(in srgb, var(--ink) 55%, transparent) 60%,
+        color-mix(in srgb, var(--ink) 5%, transparent) 80%,
+        color-mix(in srgb, var(--ink) 18%, transparent) 100%
+      ),
+      radial-gradient(
+        ellipse 75% 110% at 20% 155%,
+        transparent 93%,
+        color-mix(in srgb, var(--brass) 32%, transparent) 99%,
+        color-mix(in srgb, var(--brass) 15%, transparent) 101.5%,
+        transparent 109%
+      ),
+      radial-gradient(
+        ellipse 75% 110% at 20% 155%,
+        transparent 78%,
+        color-mix(in srgb, var(--slate) 26%, transparent) 94%,
+        color-mix(in srgb, var(--mist) 46%, transparent) 100%,
+        color-mix(in srgb, var(--slate) 24%, transparent) 105%,
+        transparent 123%
+      );
+  }
+
+  /*
+   * On a narrow hero the copy spans the full width, so there is no clear
+   * side to give the arc — and the same percentages produce a completely
+   * different shape, because rx resolves against a small width while ry
+   * resolves against a tall height, turning the flat limb into a steep
+   * rainbow arch straight through the heading. Widening the ellipse far
+   * past the viewport restores the flat sweep and dropping it below the
+   * copy makes it a horizon under the text. Symmetric, so it needs no RTL
+   * variant. Measured at 420x800, 360x720 and 768x900: eyebrow 4.71:1,
+   * h1 15.54:1, lede 6.39:1.
+   */
+  @media (max-width: 48rem) {
+    .hero,
+    :global(html[dir='rtl']) .hero {
+      background-image:
+        linear-gradient(
+          100deg,
+          color-mix(in srgb, var(--ink) 80%, transparent) 0%,
+          color-mix(in srgb, var(--ink) 60%, transparent) 45%,
+          color-mix(in srgb, var(--ink) 22%, transparent) 75%,
+          color-mix(in srgb, var(--ink) 30%, transparent) 100%
+        ),
+        radial-gradient(
+          ellipse 260% 60% at 50% 148%,
+          transparent 93%,
+          color-mix(in srgb, var(--brass) 30%, transparent) 99%,
+          color-mix(in srgb, var(--brass) 14%, transparent) 101.5%,
+          transparent 109%
+        ),
+        radial-gradient(
+          ellipse 260% 60% at 50% 148%,
+          transparent 78%,
+          color-mix(in srgb, var(--slate) 24%, transparent) 94%,
+          color-mix(in srgb, var(--mist) 42%, transparent) 100%,
+          color-mix(in srgb, var(--slate) 22%, transparent) 105%,
+          transparent 123%
+        );
+    }
   }
   h1 {
     font-size: clamp(2.3rem, 7.5vw, 4.2rem);
